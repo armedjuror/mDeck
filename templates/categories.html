@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Categories{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="page-header">
+    <h1 class="page-title">Categories</h1>
+  </div>
+
+  <!-- Add category form -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:28px">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px">New Category</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <input type="text" id="cat-name" class="form-input" placeholder="Category name" style="flex:1;min-width:160px">
+      <select id="cat-parent" class="form-select" style="width:auto;flex-shrink:0">
+        <option value="">No parent (root)</option>
+        {% for cat in roots %}
+        <option value="{{ cat.id }}">{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary" id="btn-add-cat">Add</button>
+    </div>
+  </div>
+
+  <!-- Category tree -->
+  {% if roots %}
+  <div id="cat-tree">
+    {% for root in roots %}
+    <div class="cat-item" data-id="{{ root.id }}" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:13px;font-weight:600;flex:1">{{ root.name }}</span>
+        <span style="font-size:11px;color:var(--muted)">{{ root.deck_count }} deck{% if root.deck_count != 1 %}s{% endif %}</span>
+        <button class="btn btn-danger btn-sm" onclick="deleteCategory({{ root.id }}, this)">Delete</button>
+      </div>
+
+      {% for child in root.children.all %}
+      <div class="cat-item" data-id="{{ child.id }}" style="margin-top:8px;padding:10px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius)">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:12px;color:var(--muted);margin-right:4px">&#9492;</span>
+          <span style="font-size:13px;flex:1">{{ child.name }}</span>
+          <span style="font-size:11px;color:var(--muted)">{{ child.deck_count }} deck{% if child.deck_count != 1 %}s{% endif %}</span>
+          <button class="btn btn-danger btn-sm" onclick="deleteCategory({{ child.id }}, this)">Delete</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" id="cat-empty">
+    <div class="empty-state-title">No categories yet</div>
+    Create your first category above.
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  var CSRF_TOKEN = "{{ csrf_token }}";
+
+  document.getElementById('btn-add-cat').addEventListener('click', addCategory);
+  document.getElementById('cat-name').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') addCategory();
+  });
+
+  function addCategory() {
+    var name     = document.getElementById('cat-name').value.trim();
+    var parentId = document.getElementById('cat-parent').value;
+    if (!name) { document.getElementById('cat-name').focus(); return; }
+
+    fetch("{% url 'category_create' %}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({ name: name, parent_id: parentId || null }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.error) { showToast(data.error); return; }
+      showToast('Category created');
+      document.getElementById('cat-name').value = '';
+      // Reload to rebuild tree
+      location.reload();
+    });
+  }
+
+  function deleteCategory(id, btn) {
+    if (!confirm('Delete this category? Decks in it will be uncategorized.')) return;
+    btn.disabled = true;
+    fetch('/categories/' + id + '/delete/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF_TOKEN },
+    })
+    .then(function () {
+      var item = document.querySelector('.cat-item[data-id="' + id + '"]');
+      if (item) item.remove();
+      showToast('Category deleted');
+    });
+  }
+</script>
+{% endblock %}

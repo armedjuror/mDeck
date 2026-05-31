@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ deck.title }} — mDeck</title>
+  {% load static %}
+
+  <style>
+    /* Base font — overridden per-deck by JS after Reveal init */
+    .reveal, .reveal .slides, .sp-slide { font-family: 'JetBrains Mono', monospace; }
+
+    /* Font size slider */
+    .font-size-wrap { display: flex; align-items: center; gap: 6px; }
+    .font-size-wrap input[type=range] { width: 80px; accent-color: var(--accent); cursor: pointer; }
+    #font-size-label { font-size: 11px; color: var(--muted); min-width: 28px; }
+
+    /* Meta pane */
+    #mode-meta { flex: 1; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+    #mode-meta.hidden { display: none !important; }
+    .meta-form { width: 100%; max-width: 680px; padding: 40px 32px; }
+    .meta-form .form-group { margin-bottom: 24px; }
+    .meta-form .form-label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .meta-form .form-input { width: 100%; box-sizing: border-box; }
+
+    /* Unsaved-changes modal */
+    .unsaved-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9000;
+    }
+    .unsaved-modal-backdrop.hidden { display: none !important; }
+    .unsaved-modal {
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 32px 28px; max-width: 400px; width: 90%;
+    }
+    .unsaved-modal h3 { margin: 0 0 10px; font-size: 16px; color: var(--text); }
+    .unsaved-modal p  { margin: 0 0 24px; font-size: 14px; color: var(--muted); }
+    .unsaved-modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+    .unsaved-modal-btns button { padding: 8px 16px; font: inherit; font-size: 13px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+    .unsaved-modal-btns .btn-discard { color: #f87171; border-color: #f87171; }
+  </style>
+
+  <!-- KaTeX (NO defer) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Marked.js -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+
+  <!-- marked-katex-extension -->
+  <script src="https://cdn.jsdelivr.net/npm/marked-katex-extension@5.0.0/lib/index.umd.js"></script>
+
+  <!-- CodeMirror 5 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+
+  <!-- Reveal.js -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css">
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+
+  <!-- highlight.js -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <!-- html2pdf.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <link rel="stylesheet" href="{% static 'mdeck/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'mdeck/css/editor.css' %}">
+</head>
+<body>
+
+<!-- ── Header ── -->
+<div class="note-header">
+  <div class="note-header-inner">
+    <a href="{% url 'deck_detail' deck.slug %}" class="note-back" id="btn-back">&larr; Back</a>
+    <div class="note-title-wrap">
+      <span>{{ deck.title }}</span>
+      <select class="theme-select" id="theme-select">
+        {% for t in themes %}
+        <option value="{{ t.slug }}"
+          data-bg="{{ t.bg }}" data-text="{{ t.text }}" data-accent="{{ t.accent }}" data-code-bg="{{ t.code_bg }}"
+          {% if deck.theme and deck.theme.slug == t.slug %}selected{% endif %}>{{ t.name }}</option>
+        {% endfor %}
+      </select>
+      <select class="theme-select" id="font-select">
+        {% for value, label in font_choices %}
+        <option value="{{ value }}" {% if deck.font == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <div class="font-size-wrap">
+        <input type="range" id="font-size-select" min="20" max="72" step="2" value="{{ deck.font_size }}">
+        <span id="font-size-label">{{ deck.font_size }}px</span>
+      </div>
+    </div>
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-edit"      onclick="switchMode('edit')">Edit <kbd>e</kbd></button>
+      <button class="tab-btn" id="tab-slideshow" onclick="switchMode('slideshow')">Slideshow <kbd>s</kbd></button>
+      <button class="tab-btn" id="tab-pdf"       onclick="switchMode('pdf')">PDF <kbd>p</kbd></button>
+      <button class="tab-btn" id="tab-meta"      onclick="switchMode('meta')">Meta <kbd>m</kbd></button>
+      <button class="tab-btn" id="btn-save-all"  onclick="saveAll()" style="color:var(--accent);border-right:none">Save <kbd>ctrl+s</kbd></button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Main area ── -->
+<div id="main-area">
+
+  <!-- Edit mode -->
+  <div id="mode-edit">
+    <div id="edit-content-area">
+      <div id="editor-pane">
+        <div id="editor-body">
+          <textarea id="editor-textarea"></textarea>
+        </div>
+      </div>
+      <div id="split-divider" class="hidden"></div>
+      <div id="split-preview-pane" class="hidden">
+        <div class="split-pane-header">Preview <span class="split-hint">live</span></div>
+        <div id="split-preview"></div>
+      </div>
+    </div>
+    <div class="editor-footer">
+      <button class="btn-preview-toggle" id="btn-preview-toggle" onclick="togglePreview()">&#8862; Preview</button>
+      <button class="btn-save" onclick="saveNote()">&#8595; Download MD <kbd>d</kbd></button>
+    </div>
+  </div>
+
+  <!-- Slideshow mode -->
+  <div id="mode-slideshow" class="hidden">
+    <div class="reveal-container">
+      <div class="reveal">
+        <div class="slides" id="reveal-slides"></div>
+      </div>
+    </div>
+    <div id="slideshow-controls">
+      <button class="ss-btn" id="btn-fullscreen" onclick="toggleFullscreen()" title="Fullscreen (F)">&#9990; Fullscreen</button>
+      <button class="ss-btn" id="btn-laser" onclick="toggleLaser()" title="Laser pointer (L)">&#9676; Laser</button>
+    </div>
+    <div id="laser-dot" class="hidden"></div>
+  </div>
+
+  <!-- Meta mode -->
+  <div id="mode-meta" class="hidden">
+    <div class="meta-form">
+
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input type="text" id="meta-title" class="form-input" value="{{ deck.title }}">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea id="meta-description" class="form-input"
+          style="height:100px;resize:vertical">{{ deck.description }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tags <span style="color:var(--muted);font-weight:400">(comma-separated)</span></label>
+        <input type="text" id="meta-tags" class="form-input"
+          placeholder="mathematics, class-11, ncert" value="{{ deck.tags }}">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select id="meta-category" class="form-input">
+          <option value="">— None —</option>
+          {% for cat in categories %}
+          <option value="{{ cat.id }}" {% if deck.category and deck.category.id == cat.id %}selected{% endif %}>
+            {{ cat }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PDF mode -->
+  <div id="mode-pdf" class="hidden">
+    <div class="pdf-inner">
+      <div class="pdf-actions">
+        <span class="pdf-actions-info">Exports all slides as a continuous PDF document.</span>
+        <button class="btn-pdf" id="btn-download-pdf" onclick="downloadPdf()">&#8595; Download PDF</button>
+      </div>
+      <div id="pdf-render"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Unsaved changes modal -->
+<div class="unsaved-modal-backdrop hidden" id="unsaved-modal-backdrop">
+  <div class="unsaved-modal">
+    <h3>Unsaved changes</h3>
+    <p>You have unsaved changes. Leave without saving?</p>
+    <div class="unsaved-modal-btns">
+      <button onclick="document.getElementById('unsaved-modal-backdrop').classList.add('hidden')">Stay</button>
+      <button class="btn-discard" id="btn-discard-confirm">Leave</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- ── Shared JS (markdown rendering, slideshow, app utilities) ── -->
+<script src="{% static 'mdeck/js/app.js' %}"></script>
+<script src="{% static 'mdeck/js/markdown.js' %}"></script>
+<script src="{% static 'mdeck/js/slideshow.js' %}"></script>
+
+<!-- ── Django config ── -->
+{{ deck.content|json_script:"deck-content" }}
+<script>
+  var DECK_SLUG    = "{{ deck.slug }}";
+  var SAVE_URL     = "{% url 'api_deck_save' deck.slug %}";
+  var AUTOSAVE_URL = "{% url 'api_deck_autosave' deck.slug %}";
+  var CSRF_TOKEN   = "{{ csrf_token }}";
+  var DECK_THEME   = {
+    bg:      "{{ deck.theme.bg|default:'#0f0f0f' }}",
+    text:    "{{ deck.theme.text|default:'#e0e0e0' }}",
+    accent:  "{{ deck.theme.accent|default:'#4ade80' }}",
+    codeBg:  "{{ deck.theme.code_bg|default:'#1a1a1a' }}",
+    fontCss: "{{ deck.font_css_value|escapejs }}",
+    fontSize: {{ deck.font_size }}
+  };
+</script>
+
+<!-- ── Editor IIFE (editor-specific only — shared rendering lives in the static JS files) ── -->
+<script>
+(function () {
+
+  // ── Theme injection ────────────────────────────────────────────────────────
+
+  function applyRevealTheme(bg, text, accent, fontCss, fontSize, codeBg) {
+    if (fontCss  === undefined) fontCss  = DECK_THEME.fontCss;
+    if (fontSize === undefined) fontSize = DECK_THEME.fontSize;
+    if (codeBg   === undefined) codeBg   = DECK_THEME.codeBg;
+    var f = fontCss;
+    var style = document.getElementById('theme-style');
+    if (!style) { style = document.createElement('style'); style.id = 'theme-style'; }
+    document.body.appendChild(style); // always last — beats editor.css in cascade
+    style.textContent = [
+      '.reveal-viewport { background:' + bg + ' !important; }',
+      '.reveal { background:' + bg + ' !important; color:' + text + ' !important;' +
+        ' font-family:' + f + ' !important; font-size:' + fontSize + 'px !important; }',
+      '.reveal *,.reveal .slides { font-family:' + f + ' !important; }',
+      '.reveal h1,.reveal h2,.reveal h3,.reveal h4 { color:' + accent + ' !important; }',
+      '.reveal p,.reveal li,.reveal td,.reveal th { color:' + text + ' !important; }',
+      '.reveal strong { color:' + accent + ' !important; }',
+      '.reveal .progress,.reveal .controls { color:' + accent + ' !important; }',
+      '.reveal blockquote { background:' + codeBg + ' !important; border-left:3px solid ' + accent + ' !important; color:' + text + ' !important; }',
+      '.reveal td,.reveal th { color:' + text + ' !important; border-color:' + codeBg + ' !important; }',
+      '.reveal th { background:' + codeBg + ' !important; color:' + accent + ' !important; }',
+      '.sp-slide { background:' + bg + '; color:' + text + '; font-family:' + f + ' !important; font-size:' + fontSize + 'px; }',
+      '.sp-slide * { font-family:' + f + ' !important; }',
+      '.sp-slide h1,.sp-slide h2,.sp-slide h3,.sp-slide h4 { color:' + accent + ' !important; }',
+      '.sp-slide p,.sp-slide li { color:' + text + ' !important; }',
+      '.sp-slide blockquote { background:' + codeBg + '; border-left:3px solid ' + accent + '; color:' + text + '; }',
+      '.sp-slide td,.sp-slide th { color:' + text + '; border-color:' + codeBg + '; }',
+      '.sp-slide th { background:' + codeBg + '; color:' + accent + '; }',
+    ].join('\n');
+  }
+
+  // Called by slideshow.js after Reveal initializes
+  window.onRevealReady = function (reveal) {
+    revealInst = reveal;
+    applyRevealTheme(DECK_THEME.bg, DECK_THEME.text, DECK_THEME.accent, DECK_THEME.fontCss, DECK_THEME.fontSize, DECK_THEME.codeBg);
+    reveal.layout();
+  };
+
+  // ── Editor state ───────────────────────────────────────────────────────────
+
+  var editor      = null;
+  var editorReady = false;
+  var revealInst  = null;
+  var isDirty     = false;
+  var previewOpen = false;
+  var splitPct    = 50;
+  var dragging    = false;
+  var draftTimer  = null;
+  var previewTimer = null;
+  var scrollLock  = false;
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+
+  currentMarkdown = JSON.parse(document.getElementById('deck-content').textContent);
+  currentMode = 'edit';
+
+  setupMarked();
+  applyRevealTheme(DECK_THEME.bg, DECK_THEME.text, DECK_THEME.accent, DECK_THEME.fontCss, DECK_THEME.fontSize, DECK_THEME.codeBg);
+  applyMode('edit');
+  ensureEditor();
+  setTimeout(function () {
+    if (editor) { editor.refresh(); editor.focus(); }
+    if (!previewOpen) togglePreview();
+  }, 30);
+
+  // ── Mode switching (override app.js's version for editor-specific needs) ──
+
+  window.switchMode = function (mode) {
+    if (mode === currentMode) return;
+    if (editorReady && editor) currentMarkdown = editor.getValue();
+    if (currentMode === 'slideshow' && typeof setLaser === 'function') setLaser(false);
+    currentMode = mode;
+    applyMode(mode);
+    if (mode === 'edit') {
+      ensureEditor();
+      setTimeout(function () {
+        if (editor) { editor.refresh(); editor.focus(); }
+        if (!previewOpen) togglePreview();
+        else renderPreview();
+      }, 30);
+    } else if (mode === 'slideshow') {
+      renderSlideshow();
+    } else if (mode === 'pdf') {
+      renderPdf();
+    }
+  };
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+
+  window.saveAll = function () {
+    var content = editorReady && editor ? editor.getValue() : currentMarkdown;
+    currentMarkdown = content;
+    var payload = {
+      content:     content,
+      title:       document.getElementById('meta-title').value.trim() || '{{ deck.title|escapejs }}',
+      description: document.getElementById('meta-description').value,
+      tags:        document.getElementById('meta-tags').value,
+      category_id: document.getElementById('meta-category').value || null,
+      theme:       document.getElementById('theme-select').value,
+      font:        document.getElementById('font-select').value,
+      font_size:   parseInt(document.getElementById('font-size-select').value, 10),
+    };
+    var btn = document.getElementById('btn-save-all');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+    fetch(SAVE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify(payload),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (data.ok) {
+        isDirty = false;
+        document.querySelector('.note-title-wrap span').textContent = payload.title;
+        showToast('Saved');
+      } else {
+        showToast('Save failed');
+      }
+    }).catch(function () { showToast('Save failed'); })
+    .finally(function () {
+      if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+    });
+  };
+
+  window.saveMeta = window.saveAll;
+
+  window.saveNote = function () {
+    var content = (editorReady && editor) ? editor.getValue() : currentMarkdown;
+    var url = URL.createObjectURL(new Blob([content], { type: 'text/markdown;charset=utf-8' }));
+    var a = document.createElement('a');
+    a.href = url; a.download = DECK_SLUG + '.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    showToast('Downloaded');
+  };
+
+  // ── Preview toggle ─────────────────────────────────────────────────────────
+
+  window.togglePreview = function () {
+    previewOpen = !previewOpen;
+    var divider = document.getElementById('split-divider');
+    var pane    = document.getElementById('split-preview-pane');
+    var btn     = document.getElementById('btn-preview-toggle');
+    var epane   = document.getElementById('editor-pane');
+    if (previewOpen) {
+      divider.classList.remove('hidden');
+      pane.classList.remove('hidden');
+      epane.style.flex = '0 0 ' + splitPct + '%';
+      btn.classList.add('active');
+      btn.textContent = '\u229f Preview';
+      renderPreview();
+    } else {
+      divider.classList.add('hidden');
+      pane.classList.add('hidden');
+      epane.style.flex = '';
+      btn.classList.remove('active');
+      btn.textContent = '\u229e Preview';
+    }
+    setTimeout(function () { if (editor) editor.refresh(); }, 30);
+  };
+
+  // ── Draggable divider ──────────────────────────────────────────────────────
+
+  document.getElementById('split-divider').addEventListener('mousedown', function (e) {
+    dragging = true;
+    this.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function (e) {
+    if (!dragging) return;
+    var rect = document.getElementById('mode-edit').getBoundingClientRect();
+    splitPct = Math.max(20, Math.min(80, ((e.clientX - rect.left) / rect.width) * 100));
+    document.getElementById('editor-pane').style.flex = '0 0 ' + splitPct + '%';
+    if (editor) editor.refresh();
+    scalePreviewSlides();
+  });
+
+  document.addEventListener('mouseup', function () {
+    if (!dragging) return;
+    dragging = false;
+    document.getElementById('split-divider').classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    if (editor) editor.refresh();
+  });
+
+  // ── CodeMirror ─────────────────────────────────────────────────────────────
+
+  function ensureEditor() {
+    if (editorReady) return;
+    editorReady = true;
+    editor = CodeMirror.fromTextArea(document.getElementById('editor-textarea'), {
+      mode: 'markdown',
+      theme: 'dracula',
+      lineNumbers: true,
+      lineWrapping: true,
+      autofocus: false,
+      indentWithTabs: false,
+      tabSize: 2,
+      extraKeys: {
+        'Ctrl-S': function () { window.saveAll(); },
+        'Cmd-S':  function () { window.saveAll(); },
+        'Esc': function () { switchMode('slideshow'); }
+      }
+    });
+    editor.setValue(currentMarkdown);
+
+    editor.on('change', function () {
+      isDirty = true;
+      if (previewOpen) {
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(renderPreview, 400);
+      }
+      clearTimeout(draftTimer);
+      draftTimer = setTimeout(function () {
+        fetch(AUTOSAVE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+          body: JSON.stringify({ content: editor.getValue() }),
+        }).catch(function () {});
+      }, 600);
+    });
+
+    // ── Scroll sync ──────────────────────────────────────────────────────────
+
+    function getSlideLineRanges() {
+      var lines = editor.getValue().split('\n');
+      var ranges = [];
+      var start = 0;
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === '---') {
+          ranges.push({ start: start, end: i - 1 });
+          start = i + 1;
+        }
+      }
+      ranges.push({ start: start, end: lines.length - 1 });
+      return ranges;
+    }
+
+    editor.on('scroll', function () {
+      if (scrollLock || !previewOpen) return;
+      var info = editor.getScrollInfo();
+      var topLine = editor.lineAtHeight(info.top, 'local');
+      var ranges = getSlideLineRanges();
+      var slideIdx = 0;
+      for (var i = 0; i < ranges.length; i++) {
+        if (topLine >= ranges[i].start) slideIdx = i;
+        else break;
+      }
+      var wraps = document.querySelectorAll('#split-preview .sp-wrap');
+      var preview = document.getElementById('split-preview');
+      if (!wraps.length || slideIdx >= wraps.length) return;
+      var wrap = wraps[slideIdx];
+      var targetTop = wrap.getBoundingClientRect().top
+        - preview.getBoundingClientRect().top
+        + preview.scrollTop;
+      scrollLock = true;
+      preview.scrollTop = targetTop;
+      setTimeout(function () { scrollLock = false; }, 50);
+    });
+
+    document.getElementById('split-preview').addEventListener('scroll', function () {
+      if (scrollLock || !previewOpen) return;
+      var preview = this;
+      var wraps = preview.querySelectorAll('.sp-wrap');
+      if (!wraps.length) return;
+      var previewTop = preview.getBoundingClientRect().top;
+      var slideIdx = 0;
+      var minDist = Infinity;
+      for (var i = 0; i < wraps.length; i++) {
+        var dist = Math.abs(wraps[i].getBoundingClientRect().top - previewTop);
+        if (dist < minDist) { minDist = dist; slideIdx = i; }
+      }
+      var ranges = getSlideLineRanges();
+      if (slideIdx >= ranges.length) return;
+      var coords = editor.charCoords({ line: ranges[slideIdx].start, ch: 0 }, 'local');
+      scrollLock = true;
+      editor.getScrollerElement().scrollTop = coords.top;
+      setTimeout(function () { scrollLock = false; }, 50);
+    });
+  }
+
+  // ── Live preview ───────────────────────────────────────────────────────────
+  // Uses renderMd() and splitSlides() from markdown.js
+
+  function renderPreview() {
+    var md = (editorReady && editor) ? editor.getValue() : currentMarkdown;
+    var slides = splitSlides(md);
+    var previewEl = document.getElementById('split-preview');
+    var savedScroll = previewEl.scrollTop;
+    scrollLock = true;
+    previewEl.innerHTML = slides.map(function (s, i) {
+      return '<div class="sp-wrap">' +
+        '<div class="sp-num">Slide ' + (i + 1) + ' / ' + slides.length + '</div>' +
+        '<div class="sp-outer"><div class="sp-scale-wrap"><div class="sp-slide">' +
+        renderMd(s) +
+        '</div></div></div></div>';
+    }).join('');
+    scalePreviewSlides();
+    previewEl.scrollTop = savedScroll;
+    setTimeout(function () { scrollLock = false; }, 100);
+  }
+
+  function scalePreviewSlides() {
+    document.querySelectorAll('.sp-outer').forEach(function (outer) {
+      var w = outer.offsetWidth;
+      if (!w) return;
+      var wrap = outer.querySelector('.sp-scale-wrap');
+      if (wrap) wrap.style.transform = 'scale(' + (w / 960) + ')';
+    });
+  }
+
+  window.addEventListener('resize', function () {
+    if (previewOpen) scalePreviewSlides();
+  });
+
+  // ── PDF ────────────────────────────────────────────────────────────────────
+  // Uses renderMd() and splitSlides() from markdown.js
+
+  function renderPdf() {
+    var slides = splitSlides(currentMarkdown);
+    document.getElementById('pdf-render').innerHTML = slides.map(function (s) {
+      return '<div class="slide-block">' + renderMd(s) + '</div>';
+    }).join('');
+  }
+
+  window.downloadPdf = function () {
+    renderPdf();
+    var btn = document.getElementById('btn-download-pdf');
+    btn.disabled = true; btn.textContent = 'Generating...';
+    html2pdf().set({
+      margin: [12, 12, 12, 12],
+      filename: DECK_SLUG + '.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(document.getElementById('pdf-render')).save()
+      .then(function () {
+        btn.disabled = false; btn.textContent = '\u2193 Download PDF';
+        showToast('PDF downloaded');
+      }).catch(function () {
+        btn.disabled = false; btn.textContent = '\u2193 Download PDF';
+        showToast('PDF generation failed');
+      });
+  };
+
+  // ── Deck style selectors ───────────────────────────────────────────────────
+
+  var FONT_CSS_MAP = {
+    'JetBrains Mono': "'JetBrains Mono', monospace",
+    'Inter':          "'Inter', sans-serif",
+    'Merriweather':   "'Merriweather', serif",
+    'Lora':           "'Lora', serif",
+    'DM Sans':        "'DM Sans', sans-serif",
+    'Fraunces':       "'Fraunces', serif",
+    'Outfit':         "'Outfit', sans-serif"
+  };
+
+  function syncRevealAfterStyleChange() {
+    if (revealInst) { revealInst.sync(); revealInst.layout(); }
+    if (previewOpen) renderPreview();
+  }
+
+  document.getElementById('theme-select').addEventListener('change', function () {
+    var opt = this.options[this.selectedIndex];
+    DECK_THEME.bg = opt.dataset.bg; DECK_THEME.text = opt.dataset.text;
+    DECK_THEME.accent = opt.dataset.accent; DECK_THEME.codeBg = opt.dataset.codeBg || DECK_THEME.codeBg;
+    applyRevealTheme(DECK_THEME.bg, DECK_THEME.text, DECK_THEME.accent, DECK_THEME.fontCss, DECK_THEME.fontSize, DECK_THEME.codeBg);
+    syncRevealAfterStyleChange();
+    isDirty = true;
+  });
+
+  document.getElementById('font-select').addEventListener('change', function () {
+    DECK_THEME.fontCss = FONT_CSS_MAP[this.value] || this.value;
+    applyRevealTheme(DECK_THEME.bg, DECK_THEME.text, DECK_THEME.accent, DECK_THEME.fontCss, DECK_THEME.fontSize, DECK_THEME.codeBg);
+    syncRevealAfterStyleChange();
+    isDirty = true;
+  });
+
+  document.getElementById('font-size-select').addEventListener('input', function () {
+    DECK_THEME.fontSize = parseInt(this.value, 10);
+    document.getElementById('font-size-label').textContent = this.value + 'px';
+    applyRevealTheme(DECK_THEME.bg, DECK_THEME.text, DECK_THEME.accent, DECK_THEME.fontCss, DECK_THEME.fontSize, DECK_THEME.codeBg);
+    syncRevealAfterStyleChange();
+    isDirty = true;
+  });
+
+  // ── Meta field dirty tracking ─────────────────────────────────────────────
+
+  document.querySelector('.meta-form').addEventListener('input', function () { isDirty = true; });
+  document.querySelector('.meta-form').addEventListener('change', function () { isDirty = true; });
+
+  // ── Unsaved changes guard ─────────────────────────────────────────────────
+
+  var _pendingBackUrl = null;
+
+  document.getElementById('btn-back').addEventListener('click', function (e) {
+    if (!isDirty) return;
+    e.preventDefault();
+    _pendingBackUrl = this.href;
+    document.getElementById('unsaved-modal-backdrop').classList.remove('hidden');
+  });
+
+  document.getElementById('btn-discard-confirm').addEventListener('click', function () {
+    isDirty = false;
+    if (_pendingBackUrl) window.location.href = _pendingBackUrl;
+  });
+
+  window.addEventListener('beforeunload', function (e) {
+    if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  // ── Keyboard shortcuts ─────────────────────────────────────────────────────
+
+  document.addEventListener('keydown', function (ev) {
+    var tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (document.activeElement && document.activeElement.closest('.CodeMirror')) return;
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    switch (ev.key) {
+      case 'e': ev.preventDefault(); switchMode('edit'); break;
+      case 's': ev.preventDefault(); switchMode('slideshow'); break;
+      case 'p': ev.preventDefault(); switchMode('pdf'); break;
+      case 'm': ev.preventDefault(); switchMode('meta'); break;
+      case 'd': ev.preventDefault(); saveNote(); break;
+      case 'l': if (currentMode === 'slideshow') { ev.preventDefault(); toggleLaser(); } break;
+      case 'f': if (currentMode === 'slideshow') { ev.preventDefault(); toggleFullscreen(); } break;
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>

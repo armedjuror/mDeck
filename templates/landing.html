@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mDeck — markdown to slides, AI ready</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'mdeck/css/base.css' %}">
+  <style>
+    body.page-body { overflow: auto; height: auto; }
+
+    .hero {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 80px 24px 60px;
+      text-align: center;
+    }
+
+    .hero-logo {
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -2px;
+      margin-bottom: 16px;
+      line-height: 1;
+    }
+
+    .hero-logo .logo-d { color: var(--accent); }
+
+    .hero-tagline {
+      font-size: 16px;
+      color: var(--muted);
+      margin-bottom: 40px;
+      line-height: 1.5;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .features {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .feature-icon {
+      font-size: 24px;
+      margin-bottom: 12px;
+      color: var(--accent);
+    }
+
+    .feature-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .feature-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .code-example {
+      max-width: 600px;
+      margin: 0 auto 60px;
+      padding: 0 24px;
+    }
+
+    .code-example pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      font-family: var(--font-body);
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+      overflow-x: auto;
+      text-align: left;
+    }
+
+    .code-example pre .accent { color: var(--accent); }
+    .code-example pre .text  { color: var(--text); }
+
+    .section-label {
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+  </style>
+</head>
+<body class="page-body">
+
+<nav class="site-nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">m<span class="logo-d">D</span>eck</a>
+    <div class="nav-spacer"></div>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="{% url 'explore' %}">Explore</a></li>
+      <li><a href="{% url 'account_signup' %}" class="nav-btn accent">Sign up</a></li>
+      <li><a href="{% url 'account_login' %}" class="nav-btn">Sign in</a></li>
+    </ul>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-logo">m<span class="logo-d">D</span>eck</div>
+  <p class="hero-tagline">
+    Write markdown. Present slides.<br>
+    Let AI build your decks via MCP.
+  </p>
+  <div class="hero-actions">
+    <a href="{% url 'account_signup' %}" class="btn btn-primary">Get started</a>
+    <a href="{% url 'account_login' %}" class="btn btn-secondary">Sign in</a>
+    <a href="{% url 'explore' %}" class="btn btn-secondary">Browse decks</a>
+  </div>
+</section>
+
+<div class="code-example">
+  <p class="section-label">Slide format</p>
+  <pre><span class="accent">## Relations and Functions</span>
+<span class="text">### Class 11 · NCERT Chapter 2</span>
+
+<span class="text">Given two sets $A$ and $B$:</span>
+<span class="text">$$A \times B = \{(a,b) : a \in A,\ b \in B\}$$</span>
+
+<span class="accent">---</span>
+
+<span class="accent">## Key Properties</span>
+
+<span class="text">- If $n(A) = p$ and $n(B) = q$, then $n(A \times B) = pq$</span>
+<span class="text">- $A \times B \neq B \times A$ in general</span>
+<span class="text">- $A \times \phi = \phi$</span></pre>
+</div>
+
+<div class="features">
+  <div class="feature-card">
+    <div class="feature-icon">&#9998;</div>
+    <div class="feature-title">Markdown editor</div>
+    <div class="feature-desc">CodeMirror editor with live side-by-side preview. KaTeX math, syntax-highlighted code blocks.</div>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">&#9654;</div>
+    <div class="feature-title">Reveal.js slideshow</div>
+    <div class="feature-desc">Beautiful presentations with keyboard navigation, fullscreen, laser pointer, and touch gestures.</div>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">&#128196;</div>
+    <div class="feature-title">PDF export</div>
+    <div class="feature-desc">One-click PDF download of all slides as a continuous document.</div>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">&#129302;</div>
+    <div class="feature-title">AI-native (MCP)</div>
+    <div class="feature-desc">Generate API keys and connect Claude or any MCP-compatible AI to create and update decks directly.</div>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">&#127758;</div>
+    <div class="feature-title">Public gallery</div>
+    <div class="feature-desc">Publish decks to share with the world. Allow others to copy and remix your work.</div>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">&#127912;</div>
+    <div class="feature-title">6 slide themes</div>
+    <div class="feature-desc">Dark, chalk, sepia, ocean, paper, and forest — per-deck, no full page reload.</div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <span class="footer-text">mDeck &mdash; markdown to slides, AI ready</span>
+  </div>
+</footer>
+
+<div id="toast" class="toast"></div>
+{% load static %}
+<script src="{% static 'mdeck/js/app.js' %}"></script>
+</body>
+</html>

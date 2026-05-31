@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="page-content" style="max-width:680px">
+  <div class="page-header">
+    <h1 class="page-title">Profile</h1>
+  </div>
+
+  <!-- User info -->
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:32px">
+    {% if user_profile.avatar_url %}
+    <img src="{{ user_profile.avatar_url }}" alt="Avatar" style="width:56px;height:56px;border-radius:50%;border:2px solid var(--border)">
+    {% else %}
+    <div style="width:56px;height:56px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--accent)">
+      {{ request.user.email|first|upper }}
+    </div>
+    {% endif %}
+    <div>
+      <div style="font-size:15px;font-weight:600">{{ request.user.get_full_name|default:request.user.email }}</div>
+      <div style="font-size:12px;color:var(--muted)">{{ request.user.email }}</div>
+    </div>
+  </div>
+
+  <!-- Bio -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px">Bio</div>
+    <textarea id="bio-input" class="form-textarea" rows="3" placeholder="Tell others about yourself&hellip;">{{ user_profile.bio }}</textarea>
+    <button class="btn btn-primary btn-sm" style="margin-top:12px" id="btn-save-bio">Save bio</button>
+  </div>
+
+  <!-- API Keys -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">API Keys (MCP)</div>
+      <button class="btn btn-secondary btn-sm" id="btn-gen-key">+ Generate</button>
+    </div>
+
+    <div id="new-key-banner" style="display:none;background:rgba(74,222,128,0.08);border:1px solid var(--accent);border-radius:var(--radius);padding:14px;margin-bottom:16px;font-size:12px">
+      <div style="color:var(--accent);font-weight:600;margin-bottom:6px">New API key (shown once only):</div>
+      <code id="new-key-value" style="word-break:break-all;color:var(--text);font-family:var(--font-code)"></code>
+      <button onclick="copyKey()" class="btn btn-ghost btn-sm" style="margin-top:8px">Copy key</button>
+    </div>
+
+    <div id="api-key-list">
+      {% for key in api_keys %}
+      <div class="api-key-row" data-id="{{ key.id }}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1">
+          <div style="font-size:13px">{{ key.name }}</div>
+          <div style="font-size:11px;color:var(--muted)">
+            {{ key.prefix }}**** &middot; Created {{ key.created_at|date:"M j, Y" }}
+            {% if key.last_used %}&middot; Last used {{ key.last_used|date:"M j, Y" }}{% endif %}
+          </div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="revokeKey({{ key.id }}, this)">Revoke</button>
+      </div>
+      {% empty %}
+      <div style="font-size:12px;color:var(--muted);padding:10px 0">No API keys yet. Generate one to use mDeck with Claude or other MCP clients.</div>
+      {% endfor %}
+    </div>
+
+    <div style="margin-top:16px;font-size:11px;color:var(--muted);line-height:1.6">
+      MCP endpoint: <code style="color:var(--text)">{{ request.scheme }}://{{ request.get_host }}/api/mcp/</code><br>
+      Manifest: <code style="color:var(--text)">{{ request.scheme }}://{{ request.get_host }}/api/mcp/manifest.json</code>
+    </div>
+  </div>
+
+  <!-- Generate key modal -->
+  <div class="modal-overlay" id="modal-gen-key">
+    <div class="modal">
+      <div class="modal-title">Generate API Key</div>
+      <div class="form-group">
+        <label class="form-label">Key name</label>
+        <input type="text" class="form-input" id="key-name-input" placeholder="e.g. Claude Desktop" autocomplete="off">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="modal-key-cancel">Cancel</button>
+        <button class="btn btn-primary" id="modal-key-create">Generate</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  var CSRF_TOKEN = "{{ csrf_token }}";
+
+  // Bio save
+  document.getElementById('btn-save-bio').addEventListener('click', function () {
+    var bio = document.getElementById('bio-input').value;
+    fetch("{% url 'profile_update' %}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({ bio: bio }),
+    })
+    .then(function () { showToast('Bio saved'); });
+  });
+
+  // API key generation modal
+  var genModal = document.getElementById('modal-gen-key');
+  document.getElementById('btn-gen-key').addEventListener('click', function () {
+    genModal.classList.add('open');
+    document.getElementById('key-name-input').focus();
+  });
+  document.getElementById('modal-key-cancel').addEventListener('click', function () {
+    genModal.classList.remove('open');
+  });
+  genModal.addEventListener('click', function (e) {
+    if (e.target === genModal) genModal.classList.remove('open');
+  });
+
+  document.getElementById('key-name-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('modal-key-create').click();
+  });
+
+  document.getElementById('modal-key-create').addEventListener('click', function () {
+    var name = document.getElementById('key-name-input').value.trim() || 'My API Key';
+    var btn = this;
+    btn.disabled = true;
+
+    fetch("{% url 'api_key_generate' %}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({ name: name }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      genModal.classList.remove('open');
+      btn.disabled = false;
+      document.getElementById('key-name-input').value = '';
+
+      // Show the key once
+      document.getElementById('new-key-value').textContent = data.key;
+      document.getElementById('new-key-banner').style.display = 'block';
+
+      // Add to list
+      var list = document.getElementById('api-key-list');
+      var empty = list.querySelector('div[style*="No API keys"]');
+      if (empty) empty.remove();
+      list.insertAdjacentHTML('afterbegin',
+        '<div class="api-key-row" data-id="' + data.id + '" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">' +
+        '<div style="flex:1"><div style="font-size:13px">' + data.name + '</div>' +
+        '<div style="font-size:11px;color:var(--muted)">' + data.prefix + '**** &middot; Created just now</div></div>' +
+        '<button class="btn btn-danger btn-sm" onclick="revokeKey(' + data.id + ', this)">Revoke</button></div>');
+    });
+  });
+
+  function copyKey() {
+    var key = document.getElementById('new-key-value').textContent;
+    navigator.clipboard.writeText(key).then(function () { showToast('Copied!'); });
+  }
+
+  function revokeKey(id, btn) {
+    if (!confirm('Revoke this API key? It will stop working immediately.')) return;
+    btn.disabled = true;
+    fetch('/profile/api-keys/' + id + '/revoke/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF_TOKEN },
+    })
+    .then(function () {
+      var row = document.querySelector('.api-key-row[data-id="' + id + '"]');
+      if (row) row.remove();
+      showToast('Key revoked');
+    });
+  }
+</script>
+{% endblock %}

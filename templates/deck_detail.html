@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ deck.title }}{% endblock %}
+
+{% block content %}
+<div class="page-content">
+
+  <div style="margin-bottom:24px">
+    {% if public_view %}
+    <a href="{% url 'explore' %}" style="font-size:13px;color:var(--muted)">&larr; Explore</a>
+    {% else %}
+    <a href="{% url 'dashboard' %}" style="font-size:13px;color:var(--muted)">&larr; Dashboard</a>
+    {% endif %}
+  </div>
+
+  <div class="page-header" style="align-items:flex-start">
+    <div>
+      <h1 class="page-title">{{ deck.title }}</h1>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+        <span class="badge badge-{{ deck.status }}">{{ deck.get_status_display }}</span>
+        <span class="badge badge-theme">{{ deck.theme }}</span>
+        {% if deck.category %}<span class="badge badge-draft">{{ deck.category.name }}</span>{% endif %}
+        <span style="font-size:11px;color:var(--muted)">{{ deck.slide_count }} slide{% if deck.slide_count != 1 %}s{% endif %}</span>
+        <span style="font-size:11px;color:var(--muted)">{{ deck.view_count }} view{% if deck.view_count != 1 %}s{% endif %}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      {% if not public_view %}
+      <a href="{% url 'deck_edit' deck.slug %}" class="btn btn-secondary">Edit</a>
+      {% endif %}
+      {% if not public_view %}
+      <a href="{% url 'deck_present' deck.slug %}" class="btn btn-primary">Present</a>
+      {% else %}
+      <a href="{% url 'explore_present' deck.slug %}" class="btn btn-primary">Present</a>
+      {% endif %}
+      {% if public_view and deck.allow_copy and request.user.is_authenticated %}
+      <button class="btn btn-secondary" id="btn-copy">Copy to my decks</button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if deck.description %}
+  <p style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6">{{ deck.description }}</p>
+  {% endif %}
+
+  {% if deck.tags_list %}
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px">
+    {% for tag in deck.tags_list %}
+    <span style="font-size:12px;color:var(--accent)">#{{ tag }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not public_view %}
+  <!-- Owner actions -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;letter-spacing:0.5px;text-transform:uppercase">Publish settings</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      {% if deck.status == 'draft' %}
+      <button class="btn btn-secondary btn-sm" id="btn-submit">Submit for review</button>
+      {% elif deck.status == 'pending' %}
+      <span style="font-size:12px;color:var(--muted)">Awaiting admin approval&hellip;</span>
+      <button class="btn btn-ghost btn-sm" id="btn-unpublish">Cancel submission</button>
+      {% elif deck.status == 'published' %}
+      <span style="font-size:13px;color:var(--accent)">&#10003; Published</span>
+      <button class="btn btn-ghost btn-sm" id="btn-unpublish">Unpublish</button>
+      {% endif %}
+
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer">
+        <input type="checkbox" id="allow-copy-toggle" {% if deck.allow_copy %}checked{% endif %}
+               style="accent-color:var(--accent)">
+        Allow copy
+      </label>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;margin-top:32px">
+    <button class="btn btn-danger btn-sm" id="btn-delete">Delete deck</button>
+  </div>
+  {% endif %}
+
+  {% if not public_view %}
+  <!-- Public view when published -->
+  <div style="margin-bottom:16px">
+    <a href="{% url 'explore_deck' deck.slug %}" style="font-size:12px;color:var(--muted)" {% if deck.status != 'published' %}class="muted" title="Published decks appear here"{% endif %}>
+      {% if deck.status == 'published' %}View public page &rarr;{% else %}(Available once published){% endif %}
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  var CSRF_TOKEN = "{{ csrf_token }}";
+  var DECK_SLUG = "{{ deck.slug }}";
+
+  {% if not public_view %}
+  // Submit for review
+  var btnSubmit = document.getElementById('btn-submit');
+  if (btnSubmit) {
+    btnSubmit.addEventListener('click', function () {
+      fetch('/deck/' + DECK_SLUG + '/submit/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF_TOKEN },
+      }).then(function () { location.reload(); });
+    });
+  }
+
+  // Unpublish
+  var btnUnpublish = document.getElementById('btn-unpublish');
+  if (btnUnpublish) {
+    btnUnpublish.addEventListener('click', function () {
+      fetch('/deck/' + DECK_SLUG + '/unpublish/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF_TOKEN },
+      }).then(function () { location.reload(); });
+    });
+  }
+
+  // Allow copy toggle
+  var allowCopyToggle = document.getElementById('allow-copy-toggle');
+  if (allowCopyToggle) {
+    allowCopyToggle.addEventListener('change', function () {
+      fetch('/deck/' + DECK_SLUG + '/allow-copy/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF_TOKEN },
+      }).then(function (r) { return r.json(); })
+      .then(function (data) { showToast(data.allow_copy ? 'Copy enabled' : 'Copy disabled'); });
+    });
+  }
+
+  // Delete
+  var btnDelete = document.getElementById('btn-delete');
+  if (btnDelete) {
+    btnDelete.addEventListener('click', function () {
+      if (!confirm('Delete "{{ deck.title|escapejs }}"? This cannot be undone.')) return;
+      fetch('/deck/' + DECK_SLUG + '/delete/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF_TOKEN },
+      }).then(function () { window.location.href = '/dashboard/'; });
+    });
+  }
+  {% endif %}
+
+  {% if public_view and deck.allow_copy %}
+  var btnCopy = document.getElementById('btn-copy');
+  if (btnCopy) {
+    btnCopy.addEventListener('click', function () {
+      btnCopy.disabled = true;
+      fetch('/explore/' + DECK_SLUG + '/copy/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF_TOKEN },
+      }).then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) window.location.href = '/deck/' + data.slug + '/edit/';
+      });
+    });
+  }
+  {% endif %}
+</script>
+{% endblock %}

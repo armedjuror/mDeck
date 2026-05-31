@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Explore{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="page-header">
+    <h1 class="page-title">Explore</h1>
+    {% if request.user.is_authenticated %}
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">My Decks</a>
+    {% endif %}
+  </div>
+
+  <!-- Filters -->
+  <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+    <form method="get" style="display:contents">
+      <input type="text" name="q" value="{{ q }}" class="search-input" placeholder="Search by title or tag&hellip;" style="flex:1;min-width:200px">
+      <select name="category" class="form-select" style="width:auto;flex-shrink:0">
+        <option value="">All categories</option>
+        {% for cat in pub_categories %}
+        <option value="{{ cat.slug }}" {% if current_category == cat.slug %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-secondary">Filter</button>
+      {% if q or current_category %}
+      <a href="{% url 'explore' %}" class="btn btn-ghost">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  {% if page.object_list %}
+  <div class="deck-grid">
+    {% for deck in page.object_list %}
+    <div class="deck-card" onclick="location.href='{% url 'explore_deck' deck.slug %}'">
+      <div>
+        <div class="deck-card-title">{{ deck.title }}</div>
+        <div class="deck-card-meta">
+          <span style="color:var(--muted)">by {{ deck.owner.get_full_name|default:deck.owner.email }}</span>
+          {% if deck.category %}&middot; <span>{{ deck.category.name }}</span>{% endif %}
+        </div>
+      </div>
+
+      {% if deck.tags_list %}
+      <div class="deck-card-meta" style="gap:4px">
+        {% for tag in deck.tags_list %}
+        <span style="color:var(--accent);font-size:11px">#{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div class="deck-card-meta">
+        {{ deck.slide_count }} slide{% if deck.slide_count != 1 %}s{% endif %}
+        &middot;
+        {{ deck.view_count }} view{% if deck.view_count != 1 %}s{% endif %}
+        &middot;
+        {{ deck.updated_at|date:"M j, Y" }}
+      </div>
+      <div class="deck-card-actions" onclick="event.stopPropagation()">
+        <a href="{% url 'explore_present' deck.slug %}" class="btn btn-primary btn-sm">Present</a>
+        <a href="{% url 'explore_deck' deck.slug %}" class="btn btn-ghost btn-sm">Details</a>
+        {% if deck.allow_copy and request.user.is_authenticated %}
+        <button class="btn btn-secondary btn-sm" onclick="copyDeck('{{ deck.slug }}', this)">Copy</button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Pagination -->
+  {% if page.has_other_pages %}
+  <div class="pagination">
+    {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}&q={{ q }}&category={{ current_category }}">&larr;</a>
+    {% endif %}
+    {% for num in page.paginator.page_range %}
+      {% if page.number == num %}
+      <span class="current">{{ num }}</span>
+      {% elif num > page.number|add:'-3' and num < page.number|add:'3' %}
+      <a href="?page={{ num }}&q={{ q }}&category={{ current_category }}">{{ num }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}&q={{ q }}&category={{ current_category }}">&rarr;</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state-title">No published decks yet</div>
+    {% if q or current_category %}Try clearing your search or category filter.{% else %}Be the first to publish a deck!{% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  var CSRF_TOKEN = "{{ csrf_token }}";
+
+  function copyDeck(slug, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Copying...';
+    fetch('/explore/' + slug + '/copy/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF_TOKEN },
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.ok) window.location.href = '/deck/' + data.slug + '/edit/';
+    })
+    .catch(function () { btn.disabled = false; btn.textContent = 'Copy'; });
+  }
+</script>
+{% endblock %}

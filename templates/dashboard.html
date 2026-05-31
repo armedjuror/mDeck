@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="page-header">
+    <h1 class="page-title">My Decks</h1>
+    <button class="btn btn-primary" id="btn-new-deck">+ New Deck</button>
+  </div>
+
+  <div class="dashboard-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Status</div>
+        <a href="{% url 'dashboard' %}" class="sidebar-link {% if not current_status %}active{% endif %}">All decks</a>
+        <a href="{% url 'dashboard' %}?status=draft" class="sidebar-link {% if current_status == 'draft' %}active{% endif %}">Draft</a>
+        <a href="{% url 'dashboard' %}?status=pending" class="sidebar-link {% if current_status == 'pending' %}active{% endif %}">Pending review</a>
+        <a href="{% url 'dashboard' %}?status=published" class="sidebar-link {% if current_status == 'published' %}active{% endif %}">Published</a>
+      </div>
+
+      {% if categories %}
+      <div class="sidebar-section">
+        <div class="sidebar-title">Categories</div>
+        {% for cat in categories %}
+        <a href="{% url 'dashboard' %}?category={{ cat.slug }}" class="sidebar-link {% if current_category == cat.slug %}active{% endif %}">
+          {% if cat.parent %}&nbsp;&nbsp;{% endif %}{{ cat.name }}
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="sidebar-section">
+        <a href="{% url 'categories' %}" class="sidebar-link">&#43; Manage categories</a>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="main-content">
+      <div class="search-wrap">
+        <input type="text" class="search-input" id="deck-search" placeholder="Search by title or tag..." value="{{ q }}">
+      </div>
+
+      {% if decks %}
+      <div class="deck-grid" id="deck-grid">
+        {% for deck in decks %}
+        <div class="deck-card" data-title="{{ deck.title|lower }}" data-tags="{{ deck.tags|lower }}" onclick="location.href='{% url 'deck_detail' deck.slug %}'">
+          <div class="deck-card-main">
+            <div class="deck-card-title">{{ deck.title }}</div>
+            <div class="deck-card-sub">
+              <span class="badge badge-{{ deck.status }}">{{ deck.get_status_display }}</span>
+              {% if deck.category %}<span class="badge badge-theme">{{ deck.category.name }}</span>{% endif %}
+              {% for tag in deck.tags_list %}
+              <span style="color:var(--accent);font-size:11px">#{{ tag }}</span>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="deck-card-info">
+            {{ deck.slide_count }} slide{% if deck.slide_count != 1 %}s{% endif %}
+            &middot; {{ deck.view_count }} view{% if deck.view_count != 1 %}s{% endif %}
+            {% if deck.updated_at %}&middot; {{ deck.updated_at|date:"M j, Y" }}{% endif %}
+          </div>
+          <div class="deck-card-actions" onclick="event.stopPropagation()">
+            <a href="{% url 'deck_edit' deck.slug %}" class="btn btn-secondary btn-sm">Edit</a>
+            <a href="{% url 'deck_present' deck.slug %}" class="btn btn-ghost btn-sm">Present</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-state-title">No decks yet</div>
+        Create your first deck to get started.
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+<!-- New deck modal -->
+<div class="modal-overlay" id="modal-new-deck">
+  <div class="modal">
+    <div class="modal-title">New Deck</div>
+    <div class="form-group">
+      <label class="form-label">Title</label>
+      <input type="text" class="form-input" id="new-deck-title" placeholder="e.g. Relations and Functions" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="modal-create">Create &amp; Edit</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  var CSRF_TOKEN = "{{ csrf_token }}";
+  var API_DECK_NEW = "{% url 'api_deck_new' %}";
+
+  // Live search
+  var searchInput = document.getElementById('deck-search');
+  searchInput.addEventListener('input', function () {
+    var q = this.value.toLowerCase();
+    document.querySelectorAll('.deck-card').forEach(function (card) {
+      var title = card.dataset.title || '';
+      var tags  = card.dataset.tags  || '';
+      card.style.display = (!q || title.includes(q) || tags.includes(q)) ? '' : 'none';
+    });
+  });
+
+  // New deck modal
+  var modal = document.getElementById('modal-new-deck');
+  document.getElementById('btn-new-deck').addEventListener('click', function () {
+    modal.classList.add('open');
+    document.getElementById('new-deck-title').focus();
+  });
+  document.getElementById('modal-cancel').addEventListener('click', function () {
+    modal.classList.remove('open');
+  });
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) modal.classList.remove('open');
+  });
+
+  document.getElementById('new-deck-title').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('modal-create').click();
+  });
+
+  document.getElementById('modal-create').addEventListener('click', function () {
+    var title = document.getElementById('new-deck-title').value.trim();
+    if (!title) { document.getElementById('new-deck-title').focus(); return; }
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    fetch(API_DECK_NEW, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({ title: title }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.ok) {
+        window.location.href = '/deck/' + data.slug + '/edit/';
+      }
+    })
+    .catch(function () {
+      btn.disabled = false;
+      btn.textContent = 'Create & Edit';
+      showToast('Failed to create deck');
+    });
+  });
+</script>
+{% endblock %}

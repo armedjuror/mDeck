@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}mDeck{% endblock %} — mDeck</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'mdeck/css/base.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="page-body">
+
+<nav class="site-nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">m<span class="logo-d">D</span>eck</a>
+    <span class="nav-tagline">markdown to slides, AI ready</span>
+    <div class="nav-spacer"></div>
+
+    <button class="nav-hamburger" id="nav-toggle" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <ul class="nav-links" id="nav-links">
+
+      {% if request.user.is_authenticated %}
+      <li><a href="{% url 'explore' %}" {% if request.resolver_match.url_name == 'explore' %}class="active"{% endif %}>Explore</a></li>
+      <li><a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Dashboard</a></li>
+      <li><a href="{% url 'categories' %}" {% if request.resolver_match.url_name == 'categories' %}class="active"{% endif %}>Categories</a></li>
+      <li><a href="{% url 'profile' %}" {% if request.resolver_match.url_name == 'profile' %}class="active"{% endif %}>Profile</a></li>
+      <li>
+        <form method="post" action="{% url 'account_logout' %}" style="display:contents">
+          {% csrf_token %}
+          <button type="submit" class="nav-btn">Sign out</button>
+        </form>
+      </li>
+      {% else %}
+      <li><a href="{% url 'explore' %}">Explore</a></li>
+      <li><a href="{% url 'account_signup' %}" class="nav-btn accent">Sign up</a></li>
+      <li><a href="{% url 'account_login' %}" class="nav-btn">Sign in</a></li>
+      {% endif %}
+    </ul>
+  </div>
+</nav>
+
+{% block content %}{% endblock %}
+
+<footer class="site-footer">
+  <div class="container">
+    <span class="footer-text">mDeck &mdash; markdown to slides, AI ready</span>
+  </div>
+</footer>
+
+<div id="toast" class="toast"></div>
+
+{% load static %}
+<script src="{% static 'mdeck/js/app.js' %}"></script>
+<script>
+  // Hamburger toggle
+  document.getElementById('nav-toggle').addEventListener('click', function () {
+    document.getElementById('nav-links').classList.toggle('open');
+  });
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>
