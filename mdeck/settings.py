@@ -93,4 +93,5 @@ ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_FORMS = {'signup': 'decks.forms.CustomSignupForm'}
+ACCOUNT_RATE_LIMITS = False
 

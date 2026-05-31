@@ -67,6 +67,82 @@
     </div>
   </div>
 
+  <!-- Connect to Claude -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px">
+    <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px">Connect to Claude</div>
+
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+      Add mDeck as an MCP server so Claude can create and manage your decks directly.
+      Generate an API key above, then add one of the configs below to your Claude client.
+    </div>
+
+    <!-- Tab switcher -->
+    <div style="display:flex;gap:0;margin-bottom:12px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;width:fit-content">
+      <button class="mcp-tab active" data-target="mcp-tab-code" style="padding:6px 14px;font-size:11px;font-family:var(--font-code);background:var(--accent);color:#000;border:none;cursor:pointer">Claude Code</button>
+      <button class="mcp-tab" data-target="mcp-tab-desktop" style="padding:6px 14px;font-size:11px;font-family:var(--font-code);background:transparent;color:var(--muted);border:none;cursor:pointer;border-left:1px solid var(--border)">Claude Desktop</button>
+    </div>
+
+    <!-- Claude Code config -->
+    <div id="mcp-tab-code" class="mcp-tab-panel">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+        Run this command in your terminal (replace <code style="color:var(--accent)">YOUR_KEY</code> with your API key):
+      </div>
+      <div style="position:relative">
+        <pre id="mcp-code-snippet" style="background:#111;border:1px solid var(--border);padding:14px;font-size:11px;font-family:var(--font-code);color:var(--text);overflow-x:auto;white-space:pre;margin:0;line-height:1.6">claude mcp add mdeck \
+  --transport http \
+  --url {{ request.scheme }}://{{ request.get_host }}/api/mcp/ \
+  --header "Authorization: Bearer YOUR_KEY"</pre>
+        <button onclick="copyMcpSnippet('mcp-code-snippet')" class="btn btn-ghost btn-sm" style="position:absolute;top:8px;right:8px;font-size:10px">Copy</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6">
+        Or add manually to <code style="color:var(--text)">~/.claude.json</code>:
+      </div>
+      <div style="position:relative;margin-top:8px">
+        <pre id="mcp-code-json" style="background:#111;border:1px solid var(--border);padding:14px;font-size:11px;font-family:var(--font-code);color:var(--text);overflow-x:auto;white-space:pre;margin:0;line-height:1.6">{
+  "mcpServers": {
+    "mdeck": {
+      "type": "http",
+      "url": "{{ request.scheme }}://{{ request.get_host }}/api/mcp/",
+      "headers": {
+        "Authorization": "Bearer YOUR_KEY"
+      }
+    }
+  }
+}</pre>
+        <button onclick="copyMcpSnippet('mcp-code-json')" class="btn btn-ghost btn-sm" style="position:absolute;top:8px;right:8px;font-size:10px">Copy</button>
+      </div>
+    </div>
+
+    <!-- Claude Desktop config -->
+    <div id="mcp-tab-desktop" class="mcp-tab-panel" style="display:none">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+        Add to <code style="color:var(--text)">claude_desktop_config.json</code>
+        <span style="color:var(--muted)"> (macOS: <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>)</span>:
+      </div>
+      <div style="position:relative">
+        <pre id="mcp-desktop-json" style="background:#111;border:1px solid var(--border);padding:14px;font-size:11px;font-family:var(--font-code);color:var(--text);overflow-x:auto;white-space:pre;margin:0;line-height:1.6">{
+  "mcpServers": {
+    "mdeck": {
+      "type": "http",
+      "url": "{{ request.scheme }}://{{ request.get_host }}/api/mcp/",
+      "headers": {
+        "Authorization": "Bearer YOUR_KEY"
+      }
+    }
+  }
+}</pre>
+        <button onclick="copyMcpSnippet('mcp-desktop-json')" class="btn btn-ghost btn-sm" style="position:absolute;top:8px;right:8px;font-size:10px">Copy</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6">
+        Restart Claude Desktop after saving the config.
+      </div>
+    </div>
+
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.7">
+      Available tools: <code style="color:var(--text)">list_decks</code> &middot; <code style="color:var(--text)">get_deck</code> &middot; <code style="color:var(--text)">create_deck</code> &middot; <code style="color:var(--text)">update_deck</code> &middot; <code style="color:var(--text)">append_slide</code> &middot; <code style="color:var(--text)">list_categories</code>
+    </div>
+  </div>
+
   <!-- Generate key modal -->
   <div class="modal-overlay" id="modal-gen-key">
     <div class="modal">
@@ -136,6 +212,7 @@
       // Show the key once
       document.getElementById('new-key-value').textContent = data.key;
       document.getElementById('new-key-banner').style.display = 'block';
+      fillKeyInSnippets(data.key);
 
       // Add to list
       var list = document.getElementById('api-key-list');
@@ -152,6 +229,34 @@
   function copyKey() {
     var key = document.getElementById('new-key-value').textContent;
     navigator.clipboard.writeText(key).then(function () { showToast('Copied!'); });
+  }
+
+  // MCP tab switcher
+  document.querySelectorAll('.mcp-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.mcp-tab').forEach(function(t) {
+        t.style.background = 'transparent';
+        t.style.color = 'var(--muted)';
+      });
+      document.querySelectorAll('.mcp-tab-panel').forEach(function(p) {
+        p.style.display = 'none';
+      });
+      this.style.background = 'var(--accent)';
+      this.style.color = '#000';
+      document.getElementById(this.dataset.target).style.display = 'block';
+    });
+  });
+
+  function copyMcpSnippet(id) {
+    var text = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(text).then(function() { showToast('Copied!'); });
+  }
+
+  function fillKeyInSnippets(key) {
+    ['mcp-code-snippet', 'mcp-code-json', 'mcp-desktop-json'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = el.textContent.replace(/YOUR_KEY/g, key);
+    });
   }
 
   function revokeKey(id, btn) {
