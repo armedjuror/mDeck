@@ -1,12 +1,17 @@
+import datetime
+import hashlib
 import json
+import secrets
 
+from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.shortcuts import get_object_or_404, render
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_GET
 
-from .models import APIKey, Category, Deck, DeckVersion, Theme, generate_unique_slug
+from .models import APIKey, Category, Deck, DeckVersion, OAuthApp, OAuthCode, OAuthToken, Theme, generate_unique_slug
 
 
 # ── Internal API (CSRF protected, session auth) ───────────────────────────────
@@ -90,7 +95,21 @@ def _mcp_auth(request):
     if not auth.startswith('Bearer '):
         return None
     raw_key = auth[7:].strip()
-    return APIKey.validate(raw_key)
+
+    # Check API key first
+    user = APIKey.validate(raw_key)
+    if user:
+        return user
+
+    # Check OAuth token
+    token_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+    try:
+        token = OAuthToken.objects.select_related('user').get(token_hash=token_hash)
+        token.last_used = timezone.now()
+        token.save(update_fields=['last_used'])
+        return token.user
+    except OAuthToken.DoesNotExist:
+        return None
 
 
 @csrf_exempt
@@ -325,3 +344,127 @@ def mcp_manifest(request):
         ],
     }
     return JsonResponse(manifest)
+
+
+# ── OAuth 2.0 (for Claude.ai web and other OAuth clients) ─────────────────────
+
+@require_GET
+def oauth_metadata(request):
+    host = request.build_absolute_uri('/').rstrip('/')
+    return JsonResponse({
+        'issuer': host,
+        'authorization_endpoint': f'{host}/oauth/authorize/',
+        'token_endpoint': f'{host}/oauth/token/',
+        'response_types_supported': ['code'],
+        'grant_types_supported': ['authorization_code'],
+        'token_endpoint_auth_methods_supported': ['client_secret_post'],
+        'scopes_supported': ['mcp'],
+        'code_challenge_methods_supported': [],
+    })
+
+
+def oauth_authorize(request):
+    client_id = request.GET.get('client_id') or request.POST.get('client_id', '')
+    redirect_uri = request.GET.get('redirect_uri') or request.POST.get('redirect_uri', '')
+    state = request.GET.get('state') or request.POST.get('state', '')
+    response_type = request.GET.get('response_type', 'code')
+
+    try:
+        app = OAuthApp.objects.select_related('user').get(client_id=client_id)
+    except OAuthApp.DoesNotExist:
+        return HttpResponse('Unknown client_id', status=400, content_type='text/plain')
+
+    allowed = app.get_redirect_uris()
+    if allowed and redirect_uri not in allowed:
+        return HttpResponse('redirect_uri not allowed', status=400, content_type='text/plain')
+
+    if not request.user.is_authenticated:
+        return redirect_to_login(request.get_full_path())
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+        sep = '&' if '?' in redirect_uri else '?'
+
+        if action == 'approve':
+            code_str = secrets.token_urlsafe(32)
+            OAuthCode.objects.create(
+                app=app,
+                user=request.user,
+                code=code_str,
+                redirect_uri=redirect_uri,
+                expires_at=timezone.now() + datetime.timedelta(minutes=5),
+            )
+            url = f'{redirect_uri}{sep}code={code_str}'
+            if state:
+                url += f'&state={state}'
+            return HttpResponseRedirect(url)
+
+        # deny
+        url = f'{redirect_uri}{sep}error=access_denied'
+        if state:
+            url += f'&state={state}'
+        return HttpResponseRedirect(url)
+
+    return render(request, 'oauth_authorize.html', {
+        'app': app,
+        'client_id': client_id,
+        'redirect_uri': redirect_uri,
+        'state': state,
+    })
+
+
+@csrf_exempt
+def oauth_token(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method_not_allowed'}, status=405)
+
+    content_type = request.content_type or ''
+    if 'application/json' in content_type:
+        try:
+            body = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'invalid_request'}, status=400)
+        client_id = body.get('client_id', '')
+        client_secret = body.get('client_secret', '')
+        code = body.get('code', '')
+        redirect_uri = body.get('redirect_uri', '')
+    else:
+        client_id = request.POST.get('client_id', '')
+        client_secret = request.POST.get('client_secret', '')
+        code = request.POST.get('code', '')
+        redirect_uri = request.POST.get('redirect_uri', '')
+
+    try:
+        app = OAuthApp.objects.get(client_id=client_id)
+    except OAuthApp.DoesNotExist:
+        return JsonResponse({'error': 'invalid_client'}, status=401)
+
+    if not app.verify_secret(client_secret):
+        return JsonResponse({'error': 'invalid_client'}, status=401)
+
+    try:
+        auth_code = OAuthCode.objects.select_related('user').get(code=code, app=app, used=False)
+    except OAuthCode.DoesNotExist:
+        return JsonResponse({'error': 'invalid_grant'}, status=400)
+
+    if auth_code.expires_at < timezone.now():
+        return JsonResponse({'error': 'invalid_grant', 'error_description': 'Code expired'}, status=400)
+
+    if auth_code.redirect_uri != redirect_uri:
+        return JsonResponse({'error': 'invalid_grant'}, status=400)
+
+    auth_code.used = True
+    auth_code.save(update_fields=['used'])
+
+    raw_token = 'mdeck_' + secrets.token_urlsafe(32)
+    OAuthToken.objects.create(
+        app=app,
+        user=auth_code.user,
+        token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+    )
+
+    return JsonResponse({
+        'access_token': raw_token,
+        'token_type': 'Bearer',
+        'scope': 'mcp',
+    })

@@ -67,6 +67,66 @@
     </div>
   </div>
 
+  <!-- OAuth Apps (Claude Web) -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">OAuth Apps</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">For Claude.ai web — generates a client ID + secret</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" id="btn-gen-oauth">+ New App</button>
+    </div>
+
+    <div id="new-oauth-banner" style="display:none;background:rgba(74,222,128,0.08);border:1px solid var(--accent);border-radius:var(--radius);padding:14px;margin-bottom:16px;font-size:12px">
+      <div style="color:var(--accent);font-weight:600;margin-bottom:8px">New OAuth credentials (secret shown once only):</div>
+      <div style="margin-bottom:4px">Client ID: <code id="new-oauth-client-id" style="color:var(--text);font-family:var(--font-code);word-break:break-all"></code></div>
+      <div>Client Secret: <code id="new-oauth-client-secret" style="color:var(--text);font-family:var(--font-code);word-break:break-all"></code></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button onclick="copyOAuthCreds()" class="btn btn-ghost btn-sm">Copy both</button>
+      </div>
+    </div>
+
+    <div id="oauth-app-list">
+      {% for app in oauth_apps %}
+      <div class="oauth-app-row" data-id="{{ app.id }}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1">
+          <div style="font-size:13px">{{ app.name }}</div>
+          <div style="font-size:11px;color:var(--muted)">
+            {{ app.client_id|truncatechars:30 }} &middot; Created {{ app.created_at|date:"M j, Y" }}
+          </div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteOAuthApp({{ app.id }}, this)">Delete</button>
+      </div>
+      {% empty %}
+      <div style="font-size:12px;color:var(--muted);padding:10px 0">No OAuth apps yet. Create one to connect Claude.ai web.</div>
+      {% endfor %}
+    </div>
+
+    <div style="margin-top:16px;font-size:11px;color:var(--muted);line-height:1.6">
+      OAuth authorize: <code style="color:var(--text)">{{ request.scheme }}://{{ request.get_host }}/oauth/authorize/</code><br>
+      Token endpoint: <code style="color:var(--text)">{{ request.scheme }}://{{ request.get_host }}/oauth/token/</code>
+    </div>
+  </div>
+
+  <!-- Generate OAuth app modal -->
+  <div class="modal-overlay" id="modal-gen-oauth">
+    <div class="modal">
+      <div class="modal-title">New OAuth App</div>
+      <div class="form-group">
+        <label class="form-label">App name</label>
+        <input type="text" class="form-input" id="oauth-name-input" placeholder="e.g. Claude Web" autocomplete="off">
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label class="form-label">Allowed redirect URIs <span style="color:var(--muted)">(optional, one per line)</span></label>
+        <textarea class="form-textarea" id="oauth-uris-input" rows="3" placeholder="Leave blank to allow any redirect URI&#10;e.g. https://claude.ai/..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="modal-oauth-cancel">Cancel</button>
+        <button class="btn btn-primary" id="modal-oauth-create">Create</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Connect to Claude -->
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px">
     <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px">Connect to Claude</div>
@@ -80,6 +140,7 @@
     <div style="display:flex;gap:0;margin-bottom:12px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;width:fit-content">
       <button class="mcp-tab active" data-target="mcp-tab-code" style="padding:6px 14px;font-size:11px;font-family:var(--font-code);background:var(--accent);color:#000;border:none;cursor:pointer">Claude Code</button>
       <button class="mcp-tab" data-target="mcp-tab-desktop" style="padding:6px 14px;font-size:11px;font-family:var(--font-code);background:transparent;color:var(--muted);border:none;cursor:pointer;border-left:1px solid var(--border)">Claude Desktop</button>
+      <button class="mcp-tab" data-target="mcp-tab-web" style="padding:6px 14px;font-size:11px;font-family:var(--font-code);background:transparent;color:var(--muted);border:none;cursor:pointer;border-left:1px solid var(--border)">Claude Web</button>
     </div>
 
     <!-- Claude Code config -->
@@ -135,6 +196,27 @@
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6">
         Restart Claude Desktop after saving the config.
+      </div>
+    </div>
+
+    <!-- Claude Web tab -->
+    <div id="mcp-tab-web" class="mcp-tab-panel" style="display:none">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.7">
+        Claude.ai web uses OAuth 2.0. Create an OAuth App above to get a <strong style="color:var(--text)">client ID</strong> and <strong style="color:var(--text)">client secret</strong>, then enter them in Claude.ai's MCP settings.
+      </div>
+      <ol style="font-size:12px;color:var(--muted);padding-left:18px;line-height:2;margin:0 0 14px">
+        <li>Go to <strong style="color:var(--text)">OAuth Apps</strong> above and click <strong style="color:var(--text)">+ New App</strong></li>
+        <li>Copy the <strong style="color:var(--text)">Client ID</strong> and <strong style="color:var(--text)">Client Secret</strong></li>
+        <li>In Claude.ai → Settings → Integrations → Add MCP server</li>
+        <li>Enter the server URL, then the client ID and secret when prompted</li>
+      </ol>
+      <div style="position:relative">
+        <pre id="mcp-web-info" style="background:#111;border:1px solid var(--border);padding:14px;font-size:11px;font-family:var(--font-code);color:var(--text);overflow-x:auto;white-space:pre;margin:0;line-height:1.6">Server URL:   {{ request.scheme }}://{{ request.get_host }}/api/mcp/
+Authorize:    {{ request.scheme }}://{{ request.get_host }}/oauth/authorize/
+Token:        {{ request.scheme }}://{{ request.get_host }}/oauth/token/
+Client ID:    (from OAuth Apps section above)
+Client Secret:(shown once when you create the app)</pre>
+        <button onclick="copyMcpSnippet('mcp-web-info')" class="btn btn-ghost btn-sm" style="position:absolute;top:8px;right:8px;font-size:10px">Copy</button>
       </div>
     </div>
 
@@ -270,6 +352,78 @@
       var row = document.querySelector('.api-key-row[data-id="' + id + '"]');
       if (row) row.remove();
       showToast('Key revoked');
+    });
+  }
+
+  // OAuth app creation
+  var oauthModal = document.getElementById('modal-gen-oauth');
+  document.getElementById('btn-gen-oauth').addEventListener('click', function () {
+    oauthModal.classList.add('open');
+    document.getElementById('oauth-name-input').focus();
+  });
+  document.getElementById('modal-oauth-cancel').addEventListener('click', function () {
+    oauthModal.classList.remove('open');
+  });
+  oauthModal.addEventListener('click', function (e) {
+    if (e.target === oauthModal) oauthModal.classList.remove('open');
+  });
+  document.getElementById('oauth-name-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('modal-oauth-create').click();
+  });
+
+  document.getElementById('modal-oauth-create').addEventListener('click', function () {
+    var name = document.getElementById('oauth-name-input').value.trim() || 'Claude Web';
+    var uris = document.getElementById('oauth-uris-input').value.trim();
+    var btn = this;
+    btn.disabled = true;
+
+    fetch("{% url 'oauth_app_create' %}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({ name: name, redirect_uris: uris }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      oauthModal.classList.remove('open');
+      btn.disabled = false;
+      document.getElementById('oauth-name-input').value = '';
+      document.getElementById('oauth-uris-input').value = '';
+
+      // Show credentials once
+      document.getElementById('new-oauth-client-id').textContent = data.client_id;
+      document.getElementById('new-oauth-client-secret').textContent = data.client_secret;
+      document.getElementById('new-oauth-banner').style.display = 'block';
+
+      // Add to list
+      var list = document.getElementById('oauth-app-list');
+      var empty = list.querySelector('div[style*="No OAuth"]');
+      if (empty) empty.remove();
+      list.insertAdjacentHTML('afterbegin',
+        '<div class="oauth-app-row" data-id="' + data.id + '" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">' +
+        '<div style="flex:1"><div style="font-size:13px">' + data.name + '</div>' +
+        '<div style="font-size:11px;color:var(--muted)">' + data.client_id.substring(0, 30) + '&hellip; &middot; Created just now</div></div>' +
+        '<button class="btn btn-danger btn-sm" onclick="deleteOAuthApp(' + data.id + ', this)">Delete</button></div>');
+    });
+  });
+
+  function copyOAuthCreds() {
+    var id = document.getElementById('new-oauth-client-id').textContent;
+    var secret = document.getElementById('new-oauth-client-secret').textContent;
+    navigator.clipboard.writeText('Client ID: ' + id + '\nClient Secret: ' + secret)
+      .then(function () { showToast('Copied!'); });
+  }
+
+  function deleteOAuthApp(id, btn) {
+    if (!confirm('Delete this OAuth app? Active sessions will stop working.')) return;
+    btn.disabled = true;
+    fetch('/profile/oauth-apps/' + id + '/delete/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF_TOKEN },
+    })
+    .then(function () {
+      var row = document.querySelector('.oauth-app-row[data-id="' + id + '"]');
+      if (row) row.remove();
+      showToast('OAuth app deleted');
     });
   }
 </script>

@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .models import APIKey, Category, Deck, DeckVersion, Theme, generate_unique_slug
+from .models import APIKey, Category, Deck, DeckVersion, OAuthApp, Theme, generate_unique_slug
 
 _FALLBACK_THEME = {'bg': '#0f0f0f', 'text': '#e0e0e0', 'accent': '#4ade80', 'code_bg': '#1a1a1a'}
 
@@ -265,9 +265,11 @@ def deck_copy(request, slug):
 def profile(request):
     user_profile = request.user.profile
     api_keys = request.user.api_keys.all()
+    oauth_apps = request.user.oauth_apps.all()
     return render(request, 'profile.html', {
         'user_profile': user_profile,
         'api_keys': api_keys,
+        'oauth_apps': oauth_apps,
     })
 
 
@@ -302,4 +304,32 @@ def api_key_generate(request):
 def api_key_revoke(request, key_id):
     api_key = get_object_or_404(APIKey, id=key_id, user=request.user)
     api_key.delete()
+    return JsonResponse({'ok': True})
+
+
+@login_required
+@require_POST
+def oauth_app_create(request):
+    data = json.loads(request.body)
+    name = data.get('name', 'Claude Web').strip() or 'Claude Web'
+    redirect_uris = data.get('redirect_uris', '').strip()
+    app, raw_secret = OAuthApp.generate(request.user, name)
+    if redirect_uris:
+        app.redirect_uris = redirect_uris
+        app.save(update_fields=['redirect_uris'])
+    return JsonResponse({
+        'ok': True,
+        'id': app.id,
+        'name': app.name,
+        'client_id': app.client_id,
+        'client_secret': raw_secret,
+        'client_secret_prefix': app.client_secret_prefix,
+    })
+
+
+@login_required
+@require_POST
+def oauth_app_delete(request, app_id):
+    app = get_object_or_404(OAuthApp, id=app_id, user=request.user)
+    app.delete()
     return JsonResponse({'ok': True})

@@ -35,6 +35,13 @@ urlpatterns = [
     path('profile/update/', views.profile_update, name='profile_update'),
     path('profile/api-keys/generate/', views.api_key_generate, name='api_key_generate'),
     path('profile/api-keys/<int:key_id>/revoke/', views.api_key_revoke, name='api_key_revoke'),
+    path('profile/oauth-apps/create/', views.oauth_app_create, name='oauth_app_create'),
+    path('profile/oauth-apps/<int:app_id>/delete/', views.oauth_app_delete, name='oauth_app_delete'),
+
+    # ── OAuth 2.0 ─────────────────────────────────────────────────────────────
+    path('.well-known/oauth-authorization-server', api.oauth_metadata, name='oauth_metadata'),
+    path('oauth/authorize/', api.oauth_authorize, name='oauth_authorize'),
+    path('oauth/token/', api.oauth_token, name='oauth_token'),
 
     # ── API ───────────────────────────────────────────────────────────────────
     path('api/deck/new/', api.deck_new, name='api_deck_new'),
