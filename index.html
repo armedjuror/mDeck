@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>slidenotes</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <span class="logo">slidenotes</span>
+    <a href="note.html?new=1" id="btn-new" class="btn-new">+ New Note</a>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+
+    <div class="search-wrap">
+      <input
+        type="text"
+        id="search"
+        class="search-input"
+        placeholder="Search notes by title or subject..."
+        autocomplete="off"
+        spellcheck="false"
+      >
+    </div>
+
+    <div id="notes-grid" class="notes-grid"></div>
+    <div id="state-msg" class="state-message hidden"></div>
+
+  </div>
+</main>
+
+<footer>
+  <div class="container">
+    <span class="footer-text">minimal · markdown · math</span>
+  </div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  const grid = document.getElementById('notes-grid');
+  const stateMsg = document.getElementById('state-msg');
+  const searchInput = document.getElementById('search');
+
+  let allNotes = [];
+
+  function renderCards(notes) {
+    grid.innerHTML = '';
+    if (notes.length === 0) {
+      stateMsg.textContent = 'No notes match your search.';
+      stateMsg.classList.remove('hidden');
+      return;
+    }
+    stateMsg.classList.add('hidden');
+    notes.forEach(function (note) {
+      const card = document.createElement('div');
+      card.className = 'note-card';
+      card.tabIndex = 0;
+
+      const meta = [note.subject, note.class].filter(Boolean).join(' · ');
+      const date = note.updated ? 'Updated: ' + formatDate(note.updated) : '';
+
+      card.innerHTML =
+        '<div class="note-card-title">' + escapeHtml(note.title) + '</div>' +
+        (meta ? '<div class="note-card-meta">' + escapeHtml(meta) + '</div>' : '') +
+        (date ? '<div class="note-card-date">' + escapeHtml(date) + '</div>' : '') +
+        '<div class="note-card-open">Open →</div>';
+
+      function open() {
+        window.location.href = 'note.html?file=' + encodeURIComponent(note.file);
+      }
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') open();
+      });
+
+      grid.appendChild(card);
+    });
+  }
+
+  function filterNotes(query) {
+    if (!query) return allNotes;
+    const q = query.toLowerCase();
+    return allNotes.filter(function (n) {
+      return (n.title || '').toLowerCase().includes(q) ||
+             (n.subject || '').toLowerCase().includes(q);
+    });
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  searchInput.addEventListener('input', function () {
+    renderCards(filterNotes(searchInput.value.trim()));
+  });
+
+  // Show "Resume draft" if a draft exists
+  (function () {
+    var btn = document.getElementById('btn-new');
+    if (localStorage.getItem('slidenotes_draft')) {
+      btn.textContent = 'Resume draft →';
+      btn.classList.add('has-draft');
+    }
+  })();
+
+  fetch('notes/index.json')
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function (data) {
+      allNotes = data;
+      renderCards(allNotes);
+    })
+    .catch(function (err) {
+      stateMsg.textContent = 'Could not load notes. Make sure you are serving this site over HTTP (e.g. python3 -m http.server).';
+      stateMsg.classList.remove('hidden');
+      grid.innerHTML = '';
+    });
+})();
+</script>
+
+</body>
+</html>
