@@ -199,3 +199,61 @@ class APIKey(models.Model):
             return api_key.user
         except cls.DoesNotExist:
             return None
+
+
+class OAuthApp(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='oauth_apps')
+    name = models.CharField(max_length=100)
+    client_id = models.CharField(max_length=80, unique=True)
+    client_secret_hash = models.CharField(max_length=128)
+    client_secret_prefix = models.CharField(max_length=14)
+    redirect_uris = models.TextField(blank=True, help_text='One URI per line. Leave blank to allow any.')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.email} — {self.name}'
+
+    @classmethod
+    def generate(cls, user, name):
+        client_id = 'mdeck_cid_' + secrets.token_urlsafe(20)
+        raw_secret = 'mdeck_cs_' + secrets.token_urlsafe(32)
+        app = cls.objects.create(
+            user=user,
+            name=name,
+            client_id=client_id,
+            client_secret_hash=hashlib.sha256(raw_secret.encode()).hexdigest(),
+            client_secret_prefix=raw_secret[:14],
+        )
+        return app, raw_secret
+
+    def verify_secret(self, raw_secret):
+        return hashlib.sha256(raw_secret.encode()).hexdigest() == self.client_secret_hash
+
+    def get_redirect_uris(self):
+        return [u.strip() for u in self.redirect_uris.splitlines() if u.strip()]
+
+
+class OAuthCode(models.Model):
+    app = models.ForeignKey(OAuthApp, on_delete=models.CASCADE, related_name='codes')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    code = models.CharField(max_length=128, unique=True)
+    redirect_uri = models.TextField()
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-expires_at']
+
+
+class OAuthToken(models.Model):
+    app = models.ForeignKey(OAuthApp, on_delete=models.CASCADE, related_name='tokens')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    token_hash = models.CharField(max_length=128, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
