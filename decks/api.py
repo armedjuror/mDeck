@@ -94,6 +94,7 @@ _CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type, Accept, MCP-Protocol-Version, X-Requested-With',
+    'Access-Control-Expose-Headers': 'WWW-Authenticate, MCP-Protocol-Version',
     'Access-Control-Max-Age': '86400',
 }
 
