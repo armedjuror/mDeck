@@ -243,6 +243,8 @@ class OAuthCode(models.Model):
     redirect_uri = models.TextField()
     expires_at = models.DateTimeField()
     used = models.BooleanField(default=False)
+    code_challenge = models.CharField(max_length=256, blank=True, default='')
+    code_challenge_method = models.CharField(max_length=10, blank=True, default='')
 
     class Meta:
         ordering = ['-expires_at']

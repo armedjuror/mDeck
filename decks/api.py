@@ -1,3 +1,4 @@
+import base64
 import datetime
 import hashlib
 import json
@@ -114,33 +115,70 @@ def _mcp_auth(request):
 
 @csrf_exempt
 def mcp_endpoint(request):
+    if request.method == 'GET':
+        # Some MCP clients probe with GET before POSTing
+        return HttpResponse('', status=200, content_type='text/plain')
+
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     user = _mcp_auth(request)
     if not user:
-        return JsonResponse({'error': 'Unauthorized'}, status=401)
+        return JsonResponse({
+            'jsonrpc': '2.0',
+            'id': None,
+            'error': {'code': -32001, 'message': 'Unauthorized'},
+        }, status=401)
 
     try:
         body = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        return JsonResponse({
+            'jsonrpc': '2.0',
+            'id': None,
+            'error': {'code': -32700, 'message': 'Parse error'},
+        }, status=400)
 
+    rpc_id = body.get('id')
     method = body.get('method', '')
-    params = body.get('params', {})
+    params = body.get('params') or {}
+
+    # Notifications have no id — acknowledge silently
+    if rpc_id is None and method.startswith('notifications/'):
+        return HttpResponse('', status=204)
 
     try:
         result = _dispatch_mcp(user, method, params)
     except ValueError as e:
-        return JsonResponse({'error': str(e)}, status=400)
-    except Exception as e:
-        return JsonResponse({'error': 'Internal error'}, status=500)
+        return JsonResponse({
+            'jsonrpc': '2.0',
+            'id': rpc_id,
+            'error': {'code': -32601, 'message': str(e)},
+        }, status=200)
+    except Exception:
+        return JsonResponse({
+            'jsonrpc': '2.0',
+            'id': rpc_id,
+            'error': {'code': -32603, 'message': 'Internal error'},
+        }, status=200)
 
-    return JsonResponse({'result': result})
+    return JsonResponse({'jsonrpc': '2.0', 'id': rpc_id, 'result': result})
 
 
 def _dispatch_mcp(user, method, params):
-    if method == 'list_decks':
+    # ── MCP protocol methods ──────────────────────────────────────────────────
+    if method == 'initialize':
+        return {
+            'protocolVersion': '2024-11-05',
+            'capabilities': {'tools': {}},
+            'serverInfo': {'name': 'mDeck', 'version': '1.0.0'},
+        }
+    elif method == 'tools/list':
+        return {'tools': _mcp_tools_schema()}
+    elif method == 'tools/call':
+        return _mcp_call_tool(user, params.get('name', ''), params.get('arguments') or {})
+    # ── Legacy direct methods (API key clients) ───────────────────────────────
+    elif method == 'list_decks':
         return _mcp_list_decks(user)
     elif method == 'get_deck':
         return _mcp_get_deck(user, params)
@@ -154,6 +192,87 @@ def _dispatch_mcp(user, method, params):
         return _mcp_list_categories(user)
     else:
         raise ValueError(f'Unknown method: {method}')
+
+
+def _mcp_tools_schema():
+    return [
+        {
+            'name': 'list_decks',
+            'description': 'List all your decks',
+            'inputSchema': {'type': 'object', 'properties': {}},
+        },
+        {
+            'name': 'get_deck',
+            'description': 'Get a deck by slug, including full markdown content',
+            'inputSchema': {
+                'type': 'object',
+                'properties': {'slug': {'type': 'string', 'description': 'Deck slug'}},
+                'required': ['slug'],
+            },
+        },
+        {
+            'name': 'create_deck',
+            'description': 'Create a new deck',
+            'inputSchema': {
+                'type': 'object',
+                'properties': {
+                    'title': {'type': 'string'},
+                    'content': {'type': 'string', 'description': 'Markdown content, slides separated by \\n---\\n'},
+                    'theme': {'type': 'string', 'enum': ['dark', 'chalk', 'sepia', 'ocean', 'paper', 'forest']},
+                    'tags': {'type': 'string', 'description': 'Comma-separated tags'},
+                    'category': {'type': 'string', 'description': 'Category name'},
+                },
+                'required': ['title'],
+            },
+        },
+        {
+            'name': 'update_deck',
+            'description': 'Update an existing deck',
+            'inputSchema': {
+                'type': 'object',
+                'properties': {
+                    'slug': {'type': 'string'},
+                    'content': {'type': 'string'},
+                    'title': {'type': 'string'},
+                    'tags': {'type': 'string'},
+                    'theme': {'type': 'string'},
+                },
+                'required': ['slug'],
+            },
+        },
+        {
+            'name': 'append_slide',
+            'description': 'Append a new slide to an existing deck',
+            'inputSchema': {
+                'type': 'object',
+                'properties': {
+                    'slug': {'type': 'string'},
+                    'slide_content': {'type': 'string', 'description': 'Markdown for the new slide (without ---)'},
+                },
+                'required': ['slug', 'slide_content'],
+            },
+        },
+        {
+            'name': 'list_categories',
+            'description': 'List all your categories as a nested tree',
+            'inputSchema': {'type': 'object', 'properties': {}},
+        },
+    ]
+
+
+def _mcp_call_tool(user, name, args):
+    handlers = {
+        'list_decks': lambda: _mcp_list_decks(user),
+        'get_deck': lambda: _mcp_get_deck(user, args),
+        'create_deck': lambda: _mcp_create_deck(user, args),
+        'update_deck': lambda: _mcp_update_deck(user, args),
+        'append_slide': lambda: _mcp_append_slide(user, args),
+        'list_categories': lambda: _mcp_list_categories(user),
+    }
+    if name not in handlers:
+        raise ValueError(f'Unknown tool: {name}')
+    result = handlers[name]()
+    return {'content': [{'type': 'text', 'text': json.dumps(result, indent=2, default=str)}]}
 
 
 def _mcp_list_decks(user):
@@ -359,7 +478,7 @@ def oauth_metadata(request):
         'grant_types_supported': ['authorization_code'],
         'token_endpoint_auth_methods_supported': ['client_secret_post'],
         'scopes_supported': ['mcp'],
-        'code_challenge_methods_supported': [],
+        'code_challenge_methods_supported': ['S256'],
     })
 
 
@@ -368,6 +487,8 @@ def oauth_authorize(request):
     redirect_uri = request.GET.get('redirect_uri') or request.POST.get('redirect_uri', '')
     state = request.GET.get('state') or request.POST.get('state', '')
     response_type = request.GET.get('response_type', 'code')
+    code_challenge = request.GET.get('code_challenge') or request.POST.get('code_challenge', '')
+    code_challenge_method = request.GET.get('code_challenge_method') or request.POST.get('code_challenge_method', '')
 
     try:
         app = OAuthApp.objects.select_related('user').get(client_id=client_id)
@@ -393,6 +514,8 @@ def oauth_authorize(request):
                 code=code_str,
                 redirect_uri=redirect_uri,
                 expires_at=timezone.now() + datetime.timedelta(minutes=5),
+                code_challenge=request.POST.get('code_challenge', ''),
+                code_challenge_method=request.POST.get('code_challenge_method', ''),
             )
             url = f'{redirect_uri}{sep}code={code_str}'
             if state:
@@ -410,7 +533,21 @@ def oauth_authorize(request):
         'client_id': client_id,
         'redirect_uri': redirect_uri,
         'state': state,
+        'code_challenge': code_challenge,
+        'code_challenge_method': code_challenge_method,
     })
+
+
+def _verify_pkce(code_verifier, code_challenge, method):
+    """Returns True if code_verifier satisfies the stored code_challenge."""
+    if method == 'S256':
+        digest = hashlib.sha256(code_verifier.encode('ascii')).digest()
+        computed = base64.urlsafe_b64encode(digest).rstrip(b'=').decode('ascii')
+        return computed == code_challenge
+    # plain (not recommended but allowed)
+    if method == 'plain':
+        return code_verifier == code_challenge
+    return False
 
 
 @csrf_exempt
@@ -428,18 +565,21 @@ def oauth_token(request):
         client_secret = body.get('client_secret', '')
         code = body.get('code', '')
         redirect_uri = body.get('redirect_uri', '')
+        code_verifier = body.get('code_verifier', '')
     else:
         client_id = request.POST.get('client_id', '')
         client_secret = request.POST.get('client_secret', '')
         code = request.POST.get('code', '')
         redirect_uri = request.POST.get('redirect_uri', '')
+        code_verifier = request.POST.get('code_verifier', '')
 
     try:
         app = OAuthApp.objects.get(client_id=client_id)
     except OAuthApp.DoesNotExist:
         return JsonResponse({'error': 'invalid_client'}, status=401)
 
-    if not app.verify_secret(client_secret):
+    # Allow public clients (no client_secret) when PKCE is used
+    if client_secret and not app.verify_secret(client_secret):
         return JsonResponse({'error': 'invalid_client'}, status=401)
 
     try:
@@ -452,6 +592,13 @@ def oauth_token(request):
 
     if auth_code.redirect_uri != redirect_uri:
         return JsonResponse({'error': 'invalid_grant'}, status=400)
+
+    # Validate PKCE if the authorization request included a code_challenge
+    if auth_code.code_challenge:
+        if not code_verifier:
+            return JsonResponse({'error': 'invalid_grant', 'error_description': 'code_verifier required'}, status=400)
+        if not _verify_pkce(code_verifier, auth_code.code_challenge, auth_code.code_challenge_method):
+            return JsonResponse({'error': 'invalid_grant', 'error_description': 'PKCE verification failed'}, status=400)
 
     auth_code.used = True
     auth_code.save(update_fields=['used'])
