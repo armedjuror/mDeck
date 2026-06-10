@@ -86,6 +86,7 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
+LOGIN_URL = '/auth/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 ACCOUNT_LOGOUT_REDIRECT_URL = '/'
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
