@@ -93,7 +93,7 @@ def deck_autosave(request, slug):
 _CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, Accept, MCP-Protocol-Version, X-Requested-With',
     'Access-Control-Max-Age': '86400',
 }
 
