@@ -55,14 +55,18 @@
 {% block extra_scripts %}
 <script>
   document.getElementById('btn-authorize').addEventListener('click', function () {
-    this.disabled = true;
-    this.innerHTML =
-      '<span style="display:inline-flex;align-items:center;gap:8px">' +
-        '<svg width="14" height="14" viewBox="0 0 14 14" style="animation:oauth-spin 0.7s linear infinite;flex-shrink:0">' +
-          '<circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="22" stroke-dashoffset="8" stroke-linecap="round"/>' +
-        '</svg>' +
-        'Authorizing\u2026' +
-      '</span>';
+    var btn = this;
+    // Defer disable so native form submission fires first
+    setTimeout(function () {
+      btn.disabled = true;
+      btn.innerHTML =
+        '<span style="display:inline-flex;align-items:center;gap:8px">' +
+          '<svg width="14" height="14" viewBox="0 0 14 14" style="animation:oauth-spin 0.7s linear infinite;flex-shrink:0">' +
+            '<circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="22" stroke-dashoffset="8" stroke-linecap="round"/>' +
+          '</svg>' +
+          'Authorizing\u2026' +
+        '</span>';
+    }, 0);
   });
 </script>
 <style>
