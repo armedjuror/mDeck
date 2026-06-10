@@ -41,6 +41,7 @@ urlpatterns = [
 
     # ── OAuth 2.0 ─────────────────────────────────────────────────────────────
     path('.well-known/oauth-authorization-server', api.oauth_metadata, name='oauth_metadata'),
+    path('.well-known/oauth-protected-resource', api.oauth_protected_resource, name='oauth_protected_resource'),
     path('oauth/authorize/', api.oauth_authorize, name='oauth_authorize'),
     path('oauth/token/', api.oauth_token, name='oauth_token'),
     path('oauth/register/', api.oauth_register, name='oauth_register'),

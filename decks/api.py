@@ -148,12 +148,16 @@ def mcp_endpoint(request):
 
     user = _mcp_auth(request)
     if not user:
+        base = _base_url(request)
         response = JsonResponse({
             'jsonrpc': '2.0',
             'id': None,
             'error': {'code': -32001, 'message': 'Unauthorized'},
         }, status=401)
-        response['WWW-Authenticate'] = 'Bearer realm="mDeck"'
+        response['WWW-Authenticate'] = (
+            f'Bearer realm="mDeck",'
+            f' resource_metadata="{base}/.well-known/oauth-protected-resource"'
+        )
         return _cors(response)
 
     try:
@@ -581,6 +585,19 @@ def _base_url(request):
     if '"scheme":"https"' in cf_visitor or x_forwarded == 'https':
         host = 'https://' + host.split('://', 1)[-1]
     return host
+
+
+def oauth_protected_resource(request):
+    """RFC 9728 — lets MCP clients discover the authorization server for this resource."""
+    if request.method == 'OPTIONS':
+        return _cors_preflight()
+    base = _base_url(request)
+    return _cors(JsonResponse({
+        'resource': f'{base}/api/mcp/',
+        'authorization_servers': [base],
+        'bearer_methods_supported': ['header'],
+        'resource_documentation': f'{base}/profile/',
+    }))
 
 
 def oauth_metadata(request):
