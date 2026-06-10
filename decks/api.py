@@ -404,7 +404,7 @@ def _mcp_list_categories(user):
 
 @require_GET
 def mcp_manifest(request):
-    host = request.build_absolute_uri('/').rstrip('/')
+    host = _base_url(request)
     manifest = {
         'schema_version': 'v1',
         'name': 'mDeck',
@@ -517,8 +517,20 @@ def oauth_register(request):
     }, status=201)
 
 @require_GET
-def oauth_metadata(request):
+def _base_url(request):
+    """Build the base URL with the correct scheme.
+    Cloudflare terminates TLS and forwards over HTTP, so request.scheme is
+    always 'http' on the origin. CF-Visitor contains the real client scheme."""
     host = request.build_absolute_uri('/').rstrip('/')
+    cf_visitor = request.META.get('HTTP_CF_VISITOR', '')
+    x_forwarded = request.META.get('HTTP_X_FORWARDED_PROTO', '')
+    if '"scheme":"https"' in cf_visitor or x_forwarded == 'https':
+        host = 'https://' + host.split('://', 1)[-1]
+    return host
+
+
+def oauth_metadata(request):
+    host = _base_url(request)
     return JsonResponse({
         'issuer': host,
         'authorization_endpoint': f'{host}/oauth/authorize/',
