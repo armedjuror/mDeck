@@ -1,52 +1,57 @@
 # mDeck
 
-**markdown to slides, AI ready**
+**Markdown to slides, AI ready.**
 
-mDeck is a multi-user Django web app for creating and presenting markdown-based slideshows. Write markdown in a CodeMirror editor with live preview, present with Reveal.js, export to PDF, and let AI assistants build decks via the MCP API.
+mDeck is an open-source web application for teachers and educators to write markdown notes, present them as interactive slideshows, and export to PDF — with a built-in MCP server so AI assistants like Claude can create and manage decks directly.
+
+🌐 **Live:** [mdeck.armedjuror.in](https://mdeck.armedjuror.in)
 
 ---
 
 ## Features
 
-- **Markdown editor** — CodeMirror 5 with dracula theme, live side-by-side preview
-- **KaTeX math** — inline `$E=mc^2$` and block `$$\int ...$$`
-- **Reveal.js presentations** — fade transitions, keyboard nav, fullscreen, laser pointer
-- **PDF export** — one-click download via html2pdf.js
-- **6 slide themes** — dark, chalk, sepia, ocean, paper, forest (per deck)
-- **7 UI fonts** — JetBrains Mono, Inter, Merriweather, Lora, DM Sans, Fraunces, Outfit
-- **Google OAuth** — sign in with Google
-- **Public gallery** — publish decks, allow copies
-- **MCP server** — AI assistants can create/update decks via API key
+| | |
+|---|---|
+| ✍️ **Markdown editor** | CodeMirror 5 with Dracula theme, live split-pane preview |
+| 🎞️ **Reveal.js presentations** | Fade transitions, keyboard nav, fullscreen, laser pointer |
+| 📐 **KaTeX math** | Inline `$E=mc^2$` and block `$$\int...$$` on every slide |
+| 🖨️ **PDF export** | One-click download via html2pdf.js |
+| 🎨 **6 slide themes** | dark · chalk · sepia · ocean · paper · forest |
+| 🔤 **7 UI fonts** | JetBrains Mono · Inter · Merriweather · Lora · DM Sans · Fraunces · Outfit |
+| 🌍 **Public gallery** | Publish decks, allow community copies |
+| 🔐 **Google OAuth** | Sign in with Google |
+| 🤖 **MCP server** | Full OAuth 2.0 + Dynamic Client Registration — connect Claude and any MCP client |
+| 📂 **Categories** | Nested category tree for deck organization |
 
 ---
 
-## Local Setup
+## Quick Start (Local)
 
-### 1. Clone and create virtualenv
+### 1. Clone and install
 
 ```bash
-git clone <repo>
+git clone https://github.com/your-username/mdeck.git
 cd mdeck
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Create `.env`
+### 2. Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Minimum `.env` for local dev (SQLite, no Google auth):
+Minimum `.env` for local development (SQLite, no Google auth):
 
-```
-SECRET_KEY=any-long-random-string
+```env
+SECRET_KEY=any-long-random-string-here
 DEBUG=True
 DATABASE_URL=sqlite:///db.sqlite3
+ALLOWED_HOSTS=localhost,127.0.0.1
 ```
 
-### 3. Migrate and seed
+### 3. Migrate and seed demo data
 
 ```bash
 python manage.py migrate
@@ -61,15 +66,18 @@ python manage.py runserver
 
 Open [http://localhost:8000](http://localhost:8000)
 
-Demo accounts after seeding:
-- Admin: `admin@mdeck.dev` / `admin123`
-- Demo teacher: `demo@mdeck.dev` / `demo1234`
+**Demo accounts after seeding:**
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@mdeck.dev` | `admin123` |
+| Teacher | `demo@mdeck.dev` | `demo1234` |
 
 ---
 
 ## Slide Format
 
-Slides are separated by `---` on its own line:
+Slides are separated by `---` on its own line (with blank lines around it):
 
 ```markdown
 ## Slide Title
@@ -79,127 +87,190 @@ Content here. Inline math: $E = mc^2$
 
 ---
 
-## Slide 2
-
-Block math:
-
-$$\int_0^\infty e^{-x}\,dx = 1$$
-
-- Bullet point
-- **Bold**, *italic*
-
----
-
-## Slide 3
+## Code Slide
 
 ```python
 def hello():
-    print("Hello!")
+    print("Hello, world!")
 ```
-```
-
-### Math
-
-- Inline: `$formula$`
-- Block: `$$formula$$`
-
-### Themes
-
-Set per deck in the editor header. Options: `dark`, `chalk`, `sepia`, `ocean`, `paper`, `forest`.
-
-### Fonts
-
-Set in your profile. Options: JetBrains Mono, Inter, Merriweather, Lora, DM Sans, Fraunces, Outfit.
 
 ---
 
-## Google OAuth Setup
+## Math Slide
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a project → APIs & Services → Credentials → OAuth 2.0 Client ID (Web application)
-3. Add `http://localhost:8000/auth/google/login/callback/` to Authorized redirect URIs
-4. Copy Client ID and Secret to `.env`
-5. In Django admin: Sites → change `example.com` to `localhost:8000`
-6. Social Applications → Add → Google → paste Client ID and Secret → assign to site
+Block equation:
+
+$$
+\int_0^\infty e^{-x}\,dx = 1
+$$
+
+- Bullet point
+- **Bold**, *italic*, `code`
 
 ---
 
-## MCP Setup (Claude Desktop)
+## Quote & Table
 
-mDeck exposes a JSON-RPC MCP server at `/api/mcp/`.
+> "Direct quote from source."
+> — Author
 
-### 1. Generate an API key
+| Feature | Status |
+|---|---|
+| KaTeX | ✓ |
+| PDF export | ✓ |
+```
 
-Sign in → Profile → API Keys → Generate
+---
 
-### 2. Add to Claude Desktop config
+## MCP Integration
 
-`~/Library/Application Support/Claude/claude_desktop_config.json`:
+mDeck exposes a fully spec-compliant MCP server at `/api/mcp/` supporting:
+
+- **OAuth 2.0** with Dynamic Client Registration (RFC 7591)
+- **PKCE** (S256) — no client secret needed for public clients
+- **JSON-RPC 2.0** transport (Streamable HTTP)
+- Protocol versions `2025-03-26` and `2024-11-05`
+
+### Connect Claude.ai (web)
+
+1. Go to **Claude.ai → Settings → Connectors → Add**
+2. Enter your server URL: `https://your-domain.com/api/mcp/`
+3. Claude auto-registers via DCR and opens the sign-in flow — no credentials needed
+
+### Connect Claude Code (CLI)
+
+```bash
+claude mcp add mdeck \
+  --transport http \
+  --url https://your-domain.com/api/mcp/ \
+  --header "Authorization: Bearer YOUR_API_KEY"
+```
+
+Or add manually to `~/.claude.json`:
 
 ```json
 {
   "mcpServers": {
     "mdeck": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-fetch"],
-      "env": {
-        "API_URL": "http://localhost:8000/api/mcp/",
-        "API_KEY": "mdeck_your_key_here"
-      }
+      "type": "http",
+      "url": "https://your-domain.com/api/mcp/",
+      "headers": { "Authorization": "Bearer YOUR_API_KEY" }
     }
   }
 }
 ```
 
-Manifest URL for auto-discovery: `http://localhost:8000/api/mcp/manifest.json`
+Generate an API key at **Profile → API Keys → Generate**.
 
-### MCP tools
+### MCP Tools
 
 | Tool | Description |
 |---|---|
-| `list_decks` | List all your decks |
-| `get_deck` | Get deck content by slug |
-| `create_deck` | Create a new deck |
-| `update_deck` | Update title/content/theme/tags |
-| `append_slide` | Append a slide to an existing deck |
+| `list_decks` | List all your decks with metadata |
+| `get_deck` | Get full markdown content of a deck by slug |
+| `create_deck` | Create a new deck with title, content, theme, tags |
+| `update_deck` | Update title, content, theme, or tags of a deck |
+| `append_slide` | Append a new slide to an existing deck |
 | `list_categories` | List your category tree |
+
+### OAuth Endpoints
+
+| Endpoint | URL |
+|---|---|
+| Metadata discovery | `/.well-known/oauth-authorization-server` |
+| Authorization | `/oauth/authorize/` |
+| Token exchange | `/oauth/token/` |
+| Dynamic registration | `/oauth/register/` |
 
 ---
 
-## Deploy to Railway / Render
+## Google OAuth Setup
 
-Set environment variables:
-- `SECRET_KEY` — long random string
-- `DATABASE_URL` — PostgreSQL connection string
-- `DEBUG` — `False`
-- `ALLOWED_HOSTS` — your deploy domain
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+1. [Google Cloud Console](https://console.cloud.google.com/) → Create project → APIs & Services → Credentials → **OAuth 2.0 Client ID** (Web application)
+2. Add `http://localhost:8000/accounts/google/login/callback/` to **Authorized redirect URIs**
+3. Add to `.env`:
+   ```env
+   GOOGLE_CLIENT_ID=your-client-id
+   GOOGLE_CLIENT_SECRET=your-client-secret
+   ```
+4. Django admin → **Sites** → change `example.com` → `localhost:8000`
+5. **Social Applications** → Add → Google → paste credentials → assign to site
 
-The `Procfile` `release` command runs `python manage.py migrate` automatically on deploy.
+---
+
+## Deployment
+
+### Environment Variables
+
+| Variable | Description |
+|---|---|
+| `SECRET_KEY` | Django secret key (long random string) |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `DEBUG` | `False` in production |
+| `ALLOWED_HOSTS` | Comma-separated hostnames |
+| `CSRF_TRUSTED_ORIGINS` | `https://your-domain.com` |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID (optional) |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret (optional) |
+
+### Notes
+
+- The `Procfile` `release` command runs `python manage.py migrate` automatically on deploy
+- Static files are served via **WhiteNoise** — no separate static server needed
+- The app works behind Cloudflare — `CF-Visitor` header is used for correct HTTPS URL generation
 
 ---
 
 ## Project Structure
 
 ```
-mdeck/              Django project settings
-decks/              Main app (models, views, api, admin)
-templates/          Django templates
+mdeck/                  Django project (settings, urls, wsgi)
+decks/                  Main app
+  models.py             Deck, Category, Theme, APIKey, OAuthApp, OAuthToken
+  views.py              All page views
+  api.py                MCP endpoint, OAuth 2.0 server, JSON-RPC dispatch
+  admin.py              Deck approval workflow
+  management/
+    commands/seed.py    Demo data seeder
+templates/              Django HTML templates (9 pages)
 static/mdeck/
-  css/base.css      Global styles, design system
-  css/editor.css    Editor/slideshow layout
-  js/app.js         showToast, formatDate, switchMode
-  js/markdown.js    setupMarked (KaTeX + code windows)
-  js/editor.js      CodeMirror, preview, save, autosave
-  js/slideshow.js   Reveal.js, fullscreen, laser
-  js/pdf.js         html2pdf export
-  js/shortcuts.js   Keyboard shortcuts
+  css/base.css          Design system, nav, cards, footer, responsive
+  css/editor.css        Editor/slideshow full-screen layout
+  js/app.js             showToast, formatDate, switchMode
+  js/markdown.js        Marked.js + KaTeX setup (guarded by markedReady)
+  js/editor.js          CodeMirror, split preview, save, draft persistence
+  js/slideshow.js       Reveal.js, fullscreen, laser pointer
+  js/pdf.js             html2pdf export
+  js/shortcuts.js       Global keyboard shortcuts
 ```
 
 ---
 
-## Admin: Approving Decks
+## Approving Decks for the Public Gallery
 
-1. User submits deck for review (status → `pending`)
-2. Django admin → Decks → select deck → Action: **Approve selected decks**
-3. Status becomes `published` — deck appears in public gallery
+1. User submits a deck for review → status becomes `pending`
+2. Django admin → **Decks** → select → Action: **Approve selected decks**
+3. Status becomes `published` → deck appears in the public Explore gallery
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Django 5.x, Python 3.12 |
+| Database | PostgreSQL (Supabase in production) / SQLite (local) |
+| Auth | django-allauth (email + Google OAuth) |
+| Frontend | Vanilla JS, no build step |
+| Editor | CodeMirror 5 (Dracula theme) |
+| Slideshow | Reveal.js 5 (embedded mode) |
+| Math | KaTeX 0.16 + marked-katex-extension |
+| Markdown | Marked.js 12 |
+| PDF | html2pdf.js |
+| Static files | WhiteNoise |
+| Deployment | Gunicorn + Cloudflare |
+
+---
+
+## License
+
+MIT
