@@ -88,10 +88,21 @@ AUTHENTICATION_BACKENDS = [
 
 LOGIN_REDIRECT_URL = '/dashboard/'
 ACCOUNT_LOGOUT_REDIRECT_URL = '/'
-ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_FORMS = {'signup': 'decks.forms.CustomSignupForm'}
 ACCOUNT_RATE_LIMITS = False
+ACCOUNT_EMAIL_SUBJECT_PREFIX = ''
+
+# ── Email / Resend ────────────────────────────────────────────────────────────
+RESEND_API_KEY = config('RESEND_API_KEY', default='')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='mDeck <noreply@mdeck.armedjuror.in>')
+
+if RESEND_API_KEY:
+    EMAIL_BACKEND = 'decks.email_backend.ResendEmailBackend'
+else:
+    # Local dev fallback — prints emails to the console
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
