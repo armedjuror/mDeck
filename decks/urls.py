@@ -42,6 +42,7 @@ urlpatterns = [
     path('.well-known/oauth-authorization-server', api.oauth_metadata, name='oauth_metadata'),
     path('oauth/authorize/', api.oauth_authorize, name='oauth_authorize'),
     path('oauth/token/', api.oauth_token, name='oauth_token'),
+    path('oauth/register/', api.oauth_register, name='oauth_register'),
 
     # ── API ───────────────────────────────────────────────────────────────────
     path('api/deck/new/', api.deck_new, name='api_deck_new'),

@@ -116,19 +116,21 @@ def _mcp_auth(request):
 @csrf_exempt
 def mcp_endpoint(request):
     if request.method == 'GET':
-        # Some MCP clients probe with GET before POSTing
-        return HttpResponse('', status=200, content_type='text/plain')
+        # Server does not offer SSE — per MCP spec return 405
+        return HttpResponse('', status=405)
 
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     user = _mcp_auth(request)
     if not user:
-        return JsonResponse({
+        response = JsonResponse({
             'jsonrpc': '2.0',
             'id': None,
             'error': {'code': -32001, 'message': 'Unauthorized'},
         }, status=401)
+        response['WWW-Authenticate'] = 'Bearer realm="mDeck"'
+        return response
 
     try:
         body = json.loads(request.body)
@@ -467,6 +469,49 @@ def mcp_manifest(request):
 
 # ── OAuth 2.0 (for Claude.ai web and other OAuth clients) ─────────────────────
 
+@csrf_exempt
+def oauth_register(request):
+    """OAuth 2.0 Dynamic Client Registration (RFC 7591).
+    Claude and other MCP clients call this to self-register before the auth flow."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method_not_allowed'}, status=405)
+
+    try:
+        body = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'invalid_client_metadata'}, status=400)
+
+    client_name = (body.get('client_name') or 'MCP Client')[:100]
+    redirect_uris_raw = body.get('redirect_uris', [])
+    if not isinstance(redirect_uris_raw, list) or not redirect_uris_raw:
+        return JsonResponse({
+            'error': 'invalid_client_metadata',
+            'error_description': 'redirect_uris is required',
+        }, status=400)
+
+    # DCR apps are owned by the first superuser (admin) since no user is
+    # logged in at registration time. Authorization is still scoped to
+    # the individual user who approves the OAuth flow.
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    owner = User.objects.filter(is_superuser=True).first() or User.objects.first()
+    if not owner:
+        return JsonResponse({'error': 'server_error'}, status=500)
+
+    app, raw_secret = OAuthApp.generate(owner, client_name)
+    app.redirect_uris = '\n'.join(str(u) for u in redirect_uris_raw)
+    app.save(update_fields=['redirect_uris'])
+
+    return JsonResponse({
+        'client_id': app.client_id,
+        'client_secret': raw_secret,
+        'client_name': client_name,
+        'redirect_uris': redirect_uris_raw,
+        'grant_types': ['authorization_code'],
+        'response_types': ['code'],
+        'token_endpoint_auth_method': 'client_secret_post',
+    }, status=201)
+
 @require_GET
 def oauth_metadata(request):
     host = request.build_absolute_uri('/').rstrip('/')
@@ -474,9 +519,10 @@ def oauth_metadata(request):
         'issuer': host,
         'authorization_endpoint': f'{host}/oauth/authorize/',
         'token_endpoint': f'{host}/oauth/token/',
+        'registration_endpoint': f'{host}/oauth/register/',
         'response_types_supported': ['code'],
         'grant_types_supported': ['authorization_code'],
-        'token_endpoint_auth_methods_supported': ['client_secret_post'],
+        'token_endpoint_auth_methods_supported': ['client_secret_post', 'none'],
         'scopes_supported': ['mcp'],
         'code_challenge_methods_supported': ['S256'],
     })
@@ -614,4 +660,5 @@ def oauth_token(request):
         'access_token': raw_token,
         'token_type': 'Bearer',
         'scope': 'mcp',
+        'expires_in': 31536000,  # 1 year; no server-side expiry enforced yet
     })
