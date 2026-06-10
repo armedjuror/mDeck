@@ -466,6 +466,7 @@ def mcp_manifest(request):
         'name': 'mDeck',
         'description': 'Create and manage markdown slide decks. markdown to slides, AI ready.',
         'contact_email': '',
+        'logo_url': f'{host}/static/mdeck/favicon.svg',
         'auth': {
             'type': 'api_key',
             'instructions': 'Generate an API key from your mDeck profile page (/profile/). Pass it as: Authorization: Bearer <key>',

@@ -1,10 +1,12 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import api, views
 
 urlpatterns = [
     # ── Public / auth ──────────────────────────────────────────────────────────
     path('', views.index, name='index'),
+    path('favicon.ico', RedirectView.as_view(url='/static/mdeck/favicon.svg', permanent=True)),
 
     # ── Dashboard ──────────────────────────────────────────────────────────────
     path('dashboard/', views.dashboard, name='dashboard'),
