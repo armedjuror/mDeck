@@ -95,6 +95,14 @@ $$
 \nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0}
 $$
 
+LaTeX rules — CRITICAL, follow exactly:
+• Always use _ for subscripts: $A_{31}$ not $A{31}$
+• Always use ^ for superscripts: $x^{2}$ not $x{2}$
+• Never place ; directly after a closing $. Use a comma or add a space: "$expr_1$, $expr_2$" not "$expr_1$; $expr_2$" — the semicolon breaks the inline math parser
+• Never chain many $...$ expressions on one line separated by semicolons. Use commas or split across lines
+• Prefer $$ blocks for standalone equations rather than inline $ when the expression is complex
+• When listing multiple math values on one line (e.g. $M_{31}=-12$; $A_{31}=-12$; ...), always use a single $$ block with \quad separators instead: $$M_{31}=-12,\ A_{31}=-12 \quad M_{32}=-22,\ A_{32}=22$$
+
 Tables — for comparisons or structured data from the resource:
 | Column A | Column B | Column C |
 |---|---|---|
@@ -123,6 +131,9 @@ Input → Process → Output
 ✗ Put more than 1 code block or 1 equation block on a single slide
 ✗ Use --- anywhere except as the slide separator
 ✗ Wrap the output in a code fence or add any explanation text
+✗ Write $A{31}$ — always use _ for subscripts: $A_{31}$
+✗ Put ; immediately after a closing $ — use , or a line break instead
+✗ Chain multiple $...$ expressions with semicolons on one line — use a single $$...$$ block with \quad separators
 
 ── OUTPUT ──────────────────────────────────────────────────────
 Output ONLY the raw markdown. Start directly with the first slide. No preamble, no closing remarks.</pre>

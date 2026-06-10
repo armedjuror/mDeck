@@ -35,12 +35,13 @@ function setupMarked() {
       '<span class="cw-dot" style="background:#febc2e"></span>' +
       '<span class="cw-dot" style="background:#28c840"></span>' +
       (lang ? '<span class="cw-lang">' + lang + '</span>' : '') +
-      '</div><pre class="cw-pre"><code>' + body + '</code></pre></div>';
+      '</div><pre class="cw-pre"><code class="hljs">' + body + '</code></pre></div>';
   };
 
   marked.use({ renderer: renderer });
   marked.use(markedKatex({
     throwOnError: false,
+    errorColor: '#ff6b6b',
     output: 'html',
     delimiters: [
       { left: '$$', right: '$$', display: true },

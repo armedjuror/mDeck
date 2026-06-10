@@ -4,8 +4,148 @@ var editorReady = false;
 var previewOpen = false;
 var splitPct    = 50;
 var dragging    = false;
-var previewTimer = null;
-var draftTimer  = null;
+var previewTimer  = null;
+var draftTimer    = null;
+var latexErrTimer = null;
+var latexMarks    = [];
+
+// ── Find & Replace ────────────────────────────────────────────────────────────
+var frpMarks      = [];
+var frpMatches    = [];
+var frpCurrentIdx = -1;
+
+function openFindReplace() {
+  if (!editorReady) return;
+  var panel = document.getElementById('find-replace-panel');
+  if (!panel) {
+    panel = buildFrpPanel();
+  }
+  panel.style.display = 'flex';
+  var findInput = document.getElementById('frp-find');
+  var sel = editor.getSelection();
+  if (sel) findInput.value = sel;
+  findInput.focus();
+  findInput.select();
+  frpSearch();
+}
+
+function closeFindReplace() {
+  var panel = document.getElementById('find-replace-panel');
+  if (panel) panel.style.display = 'none';
+  frpClearMarks();
+  editor.focus();
+}
+
+function buildFrpPanel() {
+  var panel = document.createElement('div');
+  panel.id = 'find-replace-panel';
+  panel.innerHTML =
+    '<div class="frp-row">' +
+      '<input id="frp-find" placeholder="Find\u2026" autocomplete="off" spellcheck="false">' +
+      '<span id="frp-count"></span>' +
+      '<button class="frp-btn" id="frp-prev" title="Previous (Shift+Enter)">\u2191</button>' +
+      '<button class="frp-btn" id="frp-next" title="Next (Enter)">\u2193</button>' +
+      '<button class="frp-btn frp-close-btn" id="frp-close">\u2715</button>' +
+    '</div>' +
+    '<div class="frp-row">' +
+      '<input id="frp-replace" placeholder="Replace with\u2026" autocomplete="off" spellcheck="false">' +
+      '<button class="frp-btn frp-action-btn" id="frp-replace-one">Replace</button>' +
+      '<button class="frp-btn frp-action-btn" id="frp-replace-all">All</button>' +
+    '</div>';
+
+  var editorPane = document.getElementById('editor-pane');
+  editorPane.insertBefore(panel, editorPane.firstChild);
+
+  document.getElementById('frp-find').addEventListener('input', frpSearch);
+  document.getElementById('frp-next').addEventListener('click', function () { frpMove(1); });
+  document.getElementById('frp-prev').addEventListener('click', function () { frpMove(-1); });
+  document.getElementById('frp-close').addEventListener('click', closeFindReplace);
+  document.getElementById('frp-replace-one').addEventListener('click', frpReplaceOne);
+  document.getElementById('frp-replace-all').addEventListener('click', frpReplaceAll);
+
+  document.getElementById('frp-find').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); frpMove(e.shiftKey ? -1 : 1); }
+    if (e.key === 'Escape') closeFindReplace();
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') { e.preventDefault(); }
+  });
+  document.getElementById('frp-replace').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); frpReplaceOne(); }
+    if (e.key === 'Escape') closeFindReplace();
+  });
+
+  return panel;
+}
+
+function frpClearMarks() {
+  frpMarks.forEach(function (m) { m.clear(); });
+  frpMarks = [];
+  frpMatches = [];
+  frpCurrentIdx = -1;
+}
+
+function frpSearch() {
+  frpClearMarks();
+  var query = document.getElementById('frp-find').value;
+  var countEl = document.getElementById('frp-count');
+  if (!query) { countEl.textContent = ''; return; }
+
+  var cursor = editor.getSearchCursor(query, CodeMirror.Pos(0, 0), { caseFold: true });
+  while (cursor.findNext()) {
+    frpMatches.push({ from: cursor.from(), to: cursor.to() });
+    frpMarks.push(editor.markText(cursor.from(), cursor.to(), { className: 'frp-match' }));
+  }
+
+  if (frpMatches.length > 0) {
+    frpCurrentIdx = 0;
+    frpHighlightCurrent();
+  } else {
+    countEl.textContent = 'No results';
+  }
+}
+
+function frpHighlightCurrent() {
+  frpMarks.forEach(function (m, i) {
+    m.clear();
+    frpMarks[i] = editor.markText(frpMatches[i].from, frpMatches[i].to, {
+      className: i === frpCurrentIdx ? 'frp-match-current' : 'frp-match',
+    });
+  });
+  editor.scrollIntoView(frpMatches[frpCurrentIdx], 80);
+  document.getElementById('frp-count').textContent =
+    (frpCurrentIdx + 1) + ' / ' + frpMatches.length;
+}
+
+function frpMove(dir) {
+  if (!frpMatches.length) return;
+  frpCurrentIdx = (frpCurrentIdx + dir + frpMatches.length) % frpMatches.length;
+  frpHighlightCurrent();
+}
+
+function frpReplaceOne() {
+  if (!frpMatches.length || frpCurrentIdx < 0) return;
+  var m = frpMatches[frpCurrentIdx];
+  editor.replaceRange(document.getElementById('frp-replace').value, m.from, m.to);
+  frpSearch();
+}
+
+function frpReplaceAll() {
+  var query = document.getElementById('frp-find').value;
+  if (!query || !frpMatches.length) return;
+  var replacement = document.getElementById('frp-replace').value;
+  editor.operation(function () {
+    var cursor = editor.getSearchCursor(query, CodeMirror.Pos(0, 0), { caseFold: true });
+    while (cursor.findNext()) cursor.replace(replacement);
+  });
+  frpSearch();
+}
+
+// Intercept Cmd/Ctrl+F at document level to prevent browser's native find
+document.addEventListener('keydown', function (e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+    e.preventDefault();
+    openFindReplace();
+  }
+}, true);
 
 // ── CodeMirror init (once) ────────────────────────────────────────────────────
 
@@ -27,11 +167,14 @@ function ensureEditor() {
     extraKeys: {
       'Ctrl-S': function () { if (typeof saveNote === 'function') saveNote(); },
       'Cmd-S':  function () { if (typeof saveNote === 'function') saveNote(); },
+      'Ctrl-F': function () { openFindReplace(); },
+      'Cmd-F':  function (e) { openFindReplace(); },
       'Esc': function () { if (typeof switchMode === 'function') switchMode('slideshow'); },
     },
   });
 
   editor.setValue(currentMarkdown);
+  setTimeout(checkLatexErrors, 800);
 
   editor.on('change', function () {
     // Live preview debounce
@@ -39,6 +182,10 @@ function ensureEditor() {
       clearTimeout(previewTimer);
       previewTimer = setTimeout(renderPreview, 400);
     }
+
+    // LaTeX error check debounce
+    clearTimeout(latexErrTimer);
+    latexErrTimer = setTimeout(checkLatexErrors, 700);
 
     // Autosave to server (replace localStorage with POST)
     if (typeof AUTOSAVE_URL !== 'undefined' && AUTOSAVE_URL) {
@@ -227,6 +374,69 @@ function _triggerDownload(content, filename) {
   a.click();
   document.body.removeChild(a);
   setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
+// ── LaTeX error checking ──────────────────────────────────────────────────────
+
+function posFromIndex(content, idx) {
+  var before = content.substring(0, idx);
+  var lines = before.split('\n');
+  return { line: lines.length - 1, ch: lines[lines.length - 1].length };
+}
+
+function checkLatexErrors() {
+  if (!editor || typeof katex === 'undefined') return;
+
+  // Clear previous marks
+  latexMarks.forEach(function (m) { m.clear(); });
+  latexMarks = [];
+
+  var content = editor.getValue();
+  var errors = [];
+
+  // Match $$...$$ (display) first, then $...$ (inline)
+  // Use two passes to avoid the inline regex capturing inside display blocks
+  var re = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g;
+  var match;
+
+  while ((match = re.exec(content)) !== null) {
+    var isDisplay = match[1] !== undefined;
+    var expr = isDisplay ? match[1] : match[2];
+
+    try {
+      katex.renderToString(expr, { throwOnError: true, displayMode: isDisplay });
+    } catch (e) {
+      var from = posFromIndex(content, match.index);
+      var to   = posFromIndex(content, match.index + match[0].length);
+      var msg  = e.message.replace(/^KaTeX parse error: /, '');
+      latexMarks.push(editor.markText(from, to, {
+        className: 'cm-latex-error',
+        title: msg,
+      }));
+      errors.push({ line: from.line + 1, msg: msg });
+    }
+  }
+
+  var panel = document.getElementById('latex-error-panel');
+  var list  = document.getElementById('le-list');
+  var title = document.getElementById('le-title');
+  if (!panel || !list) return;
+
+  if (errors.length === 0) {
+    panel.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+
+  var count = errors.length;
+  if (title) title.textContent = count + ' LaTeX error' + (count > 1 ? 's' : '');
+  list.innerHTML = errors.map(function (e) {
+    return '<div class="le-item">' +
+      '<span class="le-line">L' + e.line + '</span>' +
+      '<span class="le-msg">' + e.msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>' +
+      '</div>';
+  }).join('');
+  panel.style.display = 'block';
 }
 
 // ── DOM listeners (set up after DOM ready) ────────────────────────────────────

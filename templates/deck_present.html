@@ -106,8 +106,10 @@
   };
 
   setupMarked();
-  // Defer until after first paint so position:fixed container dimensions are resolved
-  requestAnimationFrame(function () { renderSlideshow(); });
+  // Defer until layout is resolved — rAF alone isn't sufficient for position:fixed containers
+  requestAnimationFrame(function () {
+    setTimeout(function () { renderSlideshow(); }, 50);
+  });
 </script>
 </body>
 </html>

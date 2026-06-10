@@ -48,7 +48,7 @@
         <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
         {% endif %}
 
-        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px">
+        <button type="submit" id="btn-submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px">
           Sign in
         </button>
       </form>
@@ -61,4 +61,18 @@
 
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<style>
+  @keyframes mdeck-spin { to { transform: rotate(360deg); } }
+  .btn-spinner { display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,0.25);border-top-color:#000;border-radius:50%;animation:mdeck-spin .6s linear infinite;vertical-align:middle;margin-right:6px; }
+</style>
+<script>
+  document.querySelector('form').addEventListener('submit', function () {
+    var btn = document.getElementById('btn-submit');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-spinner"></span>Signing in\u2026';
+  });
+</script>
 {% endblock %}

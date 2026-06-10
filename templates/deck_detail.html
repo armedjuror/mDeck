@@ -153,18 +153,27 @@
   {% endif %}
 
   {% if public_view and seo_slides %}
-  <!-- Slide content rendered for search engines and screen readers -->
-  <article style="margin-top:40px;border-top:1px solid var(--border);padding-top:32px">
+  <!-- Slide content for search engines / screen readers — visually hidden, not display:none -->
+  <article aria-hidden="false" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">
     {% for slide in seo_slides %}
-    <section style="margin-bottom:28px;padding-bottom:28px;{% if not forloop.last %}border-bottom:1px dashed var(--border);{% endif %}">
-      <pre style="font-family:inherit;white-space:pre-wrap;font-size:13px;color:var(--muted);line-height:1.7;margin:0">{{ slide.raw }}</pre>
-    </section>
+    <section>{{ slide.text }}</section>
     {% endfor %}
   </article>
   {% endif %}
 
-  <!-- Hidden PDF render target -->
-  <div id="pdf-render" style="display:none;position:absolute;left:-9999px"></div>
+  <!-- PDF preview overlay -->
+  <div id="pdf-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9000;overflow-y:auto;padding:32px 16px">
+    <div style="max-width:210mm;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden">
+      <div style="position:sticky;top:0;background:#f5f5f5;border-bottom:1px solid #ddd;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;z-index:1">
+        <span style="font-size:13px;color:#555">PDF Preview — {{ deck.title }}</span>
+        <div style="display:flex;gap:8px">
+          <button id="btn-pdf-save" style="font-size:12px;padding:6px 14px;background:#f2c14e;color:#111;border:none;border-radius:6px;cursor:pointer;font-weight:600">&#8595; Download PDF</button>
+          <button id="btn-pdf-close" style="font-size:12px;padding:6px 14px;background:#eee;color:#333;border:none;border-radius:6px;cursor:pointer">&#10005; Close</button>
+        </div>
+      </div>
+      <div id="pdf-render"></div>
+    </div>
+  </div>
 
 </div>
 {% endblock %}
@@ -176,9 +185,48 @@
   var DECK_SLUG = "{{ deck.slug }}";
   var currentMarkdown = JSON.parse(document.getElementById('deck-content').textContent);
 
+  // Open PDF preview overlay
   document.getElementById('btn-download-pdf').addEventListener('click', function () {
-    document.getElementById('pdf-render').style.display = 'block';
-    downloadPdf();
+    if (typeof setupMarked === 'function') setupMarked();
+    var slides = splitSlides(currentMarkdown);
+    var el = document.getElementById('pdf-render');
+    el.innerHTML = slides.map(function (s) {
+      return '<div class="slide-block">' + renderMd(s) + '</div>';
+    }).join('');
+    document.getElementById('pdf-overlay').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+  });
+
+  // Download PDF from overlay (element is in normal doc flow — html2canvas works)
+  document.getElementById('btn-pdf-save').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Generating\u2026';
+    var el = document.getElementById('pdf-render');
+    html2pdf().set({
+      margin: [12, 12, 12, 12],
+      filename: DECK_SLUG + '.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    }).from(el).save()
+      .then(function () {
+        btn.disabled = false;
+        btn.textContent = '\u2193 Download PDF';
+        showToast('PDF downloaded');
+      })
+      .catch(function () {
+        btn.disabled = false;
+        btn.textContent = '\u2193 Download PDF';
+        showToast('PDF generation failed');
+      });
+  });
+
+  // Close overlay
+  document.getElementById('btn-pdf-close').addEventListener('click', function () {
+    document.getElementById('pdf-overlay').style.display = 'none';
+    document.getElementById('pdf-render').innerHTML = '';
+    document.body.style.overflow = '';
   });
 
   {% if not public_view %}

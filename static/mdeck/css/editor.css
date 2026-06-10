@@ -121,9 +121,13 @@ html, body {
   overflow: hidden; /* editor page is full-height, no body scroll */
 }
 
-/* Override for non-editor pages */
+/* Override for non-editor pages — reset html+body back to natural scroll */
+html:has(body.page-body) {
+  height: auto;
+  overflow: visible;
+}
 body.page-body {
-  overflow: auto;
+  overflow: visible;
   height: auto;
 }
 
@@ -211,6 +215,144 @@ body.page-body {
 }
 
 .CodeMirror-linenumber { color: var(--muted) !important; }
+
+/* ── LaTeX error highlighting ─────────────────────────────────────────────── */
+
+.cm-latex-error {
+  background: rgba(255, 107, 107, 0.18);
+  text-decoration: underline wavy #ff6b6b;
+  text-decoration-skip-ink: none;
+}
+
+#latex-error-panel {
+  display: none;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  max-width: 420px;
+  max-height: 160px;
+  overflow-y: auto;
+  background: #1a0f0f;
+  border: 1px solid #ff6b6b44;
+  border-bottom: none;
+  border-left: none;
+  border-radius: 0 6px 0 0;
+  font-family: var(--font-code);
+  font-size: 11px;
+}
+
+.le-header {
+  padding: 5px 10px;
+  background: #2a0f0f;
+  color: #ff6b6b;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #ff6b6b33;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+}
+
+.le-header button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.le-header button:hover { color: var(--text); }
+
+.le-item {
+  display: flex;
+  gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid #ff6b6b1a;
+  align-items: baseline;
+}
+
+.le-item:last-child { border-bottom: none; }
+
+.le-line {
+  color: #ff6b6b;
+  flex-shrink: 0;
+  min-width: 32px;
+}
+
+.le-msg { color: #e0e0e0; word-break: break-word; }
+
+/* ── Find & Replace panel ─────────────────────────────────────────────────── */
+
+#find-replace-panel {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+
+.frp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.frp-row input {
+  flex: 1;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--font-code);
+  font-size: 12px;
+  outline: none;
+  min-width: 0;
+}
+
+.frp-row input:focus { border-color: var(--accent); }
+
+#frp-count {
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 52px;
+  text-align: right;
+}
+
+.frp-btn {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.frp-btn:hover { border-color: var(--muted); }
+
+.frp-action-btn {
+  font-size: 11px;
+  padding: 3px 10px;
+}
+
+.frp-close-btn { color: var(--muted); }
+
+/* Match highlights */
+.frp-match         { background: rgba(242,193,78,0.25); border-radius: 2px; }
+.frp-match-current { background: rgba(242,193,78,0.7);  border-radius: 2px; color: #111; }
 
 /* ── Editor footer ────────────────────────────────────────────────────────── */
 
@@ -488,6 +630,10 @@ body.page-body {
 
 .reveal .katex { font-size: 1em !important; }
 .reveal .katex-display { margin: 0.5em 0 !important; }
+.reveal .katex-error { color: #ff6b6b !important; }
+
+.sp-slide .katex-error { color: #ff6b6b !important; }
+#pdf-render .katex-error { color: #cc0000 !important; }
 
 /* ── Slideshow controls overlay ───────────────────────────────────────────── */
 
@@ -577,8 +723,6 @@ body.page-body {
   color: #111;
   font-family: var(--font-code);
   padding: 40px 48px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
 }
 
 #pdf-render h1, #pdf-render h2 { color: #111; font-size: 1.4em; margin: 0.8em 0 0.4em; font-weight: 700; }
@@ -595,6 +739,7 @@ body.page-body {
 
 #pdf-render .slide-block:last-child { border-bottom: none; }
 
+
 #pdf-render table { border-collapse: collapse; margin: 0.5em 0; font-size: 0.85em; width: 100%; }
 #pdf-render th { background: #f0f0f0; border: 1px solid #ccc; padding: 5px 10px; text-align: left; }
 #pdf-render td { border: 1px solid #ccc; padding: 5px 10px; }
@@ -606,7 +751,9 @@ body.page-body {
 
 #pdf-render .cw-pre,
 #pdf-render .cw-pre code { background: #1e1e1e !important; padding: 0 !important; }
-#pdf-render .code-window { font-size: 0.8em; border-radius: 6px; }
+#pdf-render .code-window { font-size: 0.8em; border-radius: 6px; page-break-inside: avoid; break-inside: avoid; }
+#pdf-render .katex-display { page-break-inside: avoid; break-inside: avoid; }
+#pdf-render .slide-block { page-break-inside: avoid; break-inside: avoid; }
 
 /* ── Code window (mac-style) ──────────────────────────────────────────────── */
 
@@ -636,6 +783,7 @@ body.page-body {
   margin: 0 !important;
   padding: 10px 0 !important;
   background: #1e1e1e !important;
+  color: #abb2bf;
   border: none !important;
   border-radius: 0 !important;
   box-shadow: none !important;

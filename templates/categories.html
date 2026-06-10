@@ -14,12 +14,14 @@
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px">New Category</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <input type="text" id="cat-name" class="form-input" placeholder="Category name" style="flex:1;min-width:160px">
+      {% if roots %}
       <select id="cat-parent" class="form-select" style="width:auto;flex-shrink:0">
         <option value="">No parent (root)</option>
         {% for cat in roots %}
         <option value="{{ cat.id }}">{{ cat.name }}</option>
         {% endfor %}
       </select>
+      {% endif %}
       <button class="btn btn-primary" id="btn-add-cat">Add</button>
     </div>
   </div>
@@ -69,7 +71,8 @@
 
   function addCategory() {
     var name     = document.getElementById('cat-name').value.trim();
-    var parentId = document.getElementById('cat-parent').value;
+    var parentEl = document.getElementById('cat-parent');
+    var parentId = parentEl ? parentEl.value : '';
     if (!name) { document.getElementById('cat-name').focus(); return; }
 
     fetch("{% url 'category_create' %}", {

@@ -57,6 +57,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
 
   <!-- Reveal.js -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
@@ -117,6 +118,13 @@
       <div id="editor-pane">
         <div id="editor-body">
           <textarea id="editor-textarea"></textarea>
+          <div id="latex-error-panel">
+            <div class="le-header">
+              <span id="le-title">LaTeX errors</span>
+              <button onclick="document.getElementById('latex-error-panel').style.display='none'" title="Dismiss">&#10005;</button>
+            </div>
+            <div id="le-list"></div>
+          </div>
         </div>
       </div>
       <div id="split-divider" class="hidden"></div>
@@ -282,8 +290,10 @@
   var previewOpen = false;
   var splitPct    = 50;
   var dragging    = false;
-  var draftTimer  = null;
-  var previewTimer = null;
+  var draftTimer    = null;
+  var previewTimer  = null;
+  var latexErrTimer = null;
+  var latexMarks    = [];
   var scrollLock  = false;
 
   // ── Boot ───────────────────────────────────────────────────────────────────
@@ -422,6 +432,59 @@
     if (editor) editor.refresh();
   });
 
+  // ── LaTeX error checking ────────────────────────────────────────────────────
+
+  function posFromIndex(content, idx) {
+    var before = content.substring(0, idx);
+    var lines = before.split('\n');
+    return { line: lines.length - 1, ch: lines[lines.length - 1].length };
+  }
+
+  function checkLatexErrors() {
+    if (!editor || typeof katex === 'undefined') return;
+    latexMarks.forEach(function (m) { m.clear(); });
+    latexMarks = [];
+
+    var content = editor.getValue();
+    var errors = [];
+    var re = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g;
+    var match;
+
+    while ((match = re.exec(content)) !== null) {
+      var isDisplay = match[1] !== undefined;
+      var expr = isDisplay ? match[1] : match[2];
+      try {
+        katex.renderToString(expr, { throwOnError: true, displayMode: isDisplay });
+      } catch (e) {
+        var from = posFromIndex(content, match.index);
+        var to   = posFromIndex(content, match.index + match[0].length);
+        var msg  = e.message.replace(/^KaTeX parse error: /, '');
+        latexMarks.push(editor.markText(from, to, { className: 'cm-latex-error', title: msg }));
+        errors.push({ line: from.line + 1, msg: msg });
+      }
+    }
+
+    var panel = document.getElementById('latex-error-panel');
+    var list  = document.getElementById('le-list');
+    var title = document.getElementById('le-title');
+    if (!panel || !list) return;
+
+    if (errors.length === 0) {
+      panel.style.display = 'none';
+      list.innerHTML = '';
+      return;
+    }
+    var count = errors.length;
+    if (title) title.textContent = count + ' LaTeX error' + (count > 1 ? 's' : '');
+    list.innerHTML = errors.map(function (e) {
+      return '<div class="le-item">' +
+        '<span class="le-line">L' + e.line + '</span>' +
+        '<span class="le-msg">' + e.msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>' +
+        '</div>';
+    }).join('');
+    panel.style.display = 'block';
+  }
+
   // ── CodeMirror ─────────────────────────────────────────────────────────────
 
   function ensureEditor() {
@@ -438,10 +501,13 @@
       extraKeys: {
         'Ctrl-S': function () { window.saveAll(); },
         'Cmd-S':  function () { window.saveAll(); },
+        'Ctrl-F': function () { openFindReplace(); },
+        'Cmd-F':  function () { openFindReplace(); },
         'Esc': function () { switchMode('slideshow'); }
       }
     });
     editor.setValue(currentMarkdown);
+    setTimeout(checkLatexErrors, 800);
 
     editor.on('change', function () {
       isDirty = true;
@@ -449,6 +515,8 @@
         clearTimeout(previewTimer);
         previewTimer = setTimeout(renderPreview, 400);
       }
+      clearTimeout(latexErrTimer);
+      latexErrTimer = setTimeout(checkLatexErrors, 700);
       clearTimeout(draftTimer);
       draftTimer = setTimeout(function () {
         fetch(AUTOSAVE_URL, {
@@ -475,46 +543,69 @@
       return ranges;
     }
 
+    // Track which pane the user is actively scrolling so programmatic
+    // smooth-scroll events on the other pane never trigger a reverse sync.
+    var activePane = null;
+    var syncTimer = null;
+
+    var editorPane = document.getElementById('editor-pane');
+    var previewPane = document.getElementById('split-preview');
+
+    editorPane.addEventListener('mouseenter', function () { activePane = 'editor'; });
+    previewPane.addEventListener('mouseenter', function () { activePane = 'preview'; });
+
     editor.on('scroll', function () {
-      if (scrollLock || !previewOpen) return;
-      var info = editor.getScrollInfo();
-      var topLine = editor.lineAtHeight(info.top, 'local');
-      var ranges = getSlideLineRanges();
-      var slideIdx = 0;
-      for (var i = 0; i < ranges.length; i++) {
-        if (topLine >= ranges[i].start) slideIdx = i;
-        else break;
-      }
-      var wraps = document.querySelectorAll('#split-preview .sp-wrap');
-      var preview = document.getElementById('split-preview');
-      if (!wraps.length || slideIdx >= wraps.length) return;
-      var wrap = wraps[slideIdx];
-      var targetTop = wrap.getBoundingClientRect().top
-        - preview.getBoundingClientRect().top
-        + preview.scrollTop;
-      scrollLock = true;
-      preview.scrollTop = targetTop;
-      setTimeout(function () { scrollLock = false; }, 50);
+      if (activePane !== 'editor' || !previewOpen) return;
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(function () {
+        var info = editor.getScrollInfo();
+        var refLine = editor.lineAtHeight(info.top + info.clientHeight * 0.25, 'local');
+        var ranges = getSlideLineRanges();
+        var slideIdx = 0;
+        var slideProgress = 0;
+        for (var i = 0; i < ranges.length; i++) {
+          if (refLine >= ranges[i].start) {
+            slideIdx = i;
+            var span = ranges[i].end - ranges[i].start;
+            slideProgress = span > 0 ? Math.min(1, (refLine - ranges[i].start) / span) : 0;
+          } else break;
+        }
+        var wraps = document.querySelectorAll('#split-preview .sp-wrap');
+        if (!wraps.length || slideIdx >= wraps.length) return;
+        var wrap = wraps[slideIdx];
+        var targetTop = wrap.offsetTop + slideProgress * wrap.offsetHeight * 0.5;
+        previewPane.scrollTo({ top: targetTop, behavior: 'smooth' });
+      }, 80);
     });
 
-    document.getElementById('split-preview').addEventListener('scroll', function () {
-      if (scrollLock || !previewOpen) return;
-      var preview = this;
-      var wraps = preview.querySelectorAll('.sp-wrap');
-      if (!wraps.length) return;
-      var previewTop = preview.getBoundingClientRect().top;
-      var slideIdx = 0;
-      var minDist = Infinity;
-      for (var i = 0; i < wraps.length; i++) {
-        var dist = Math.abs(wraps[i].getBoundingClientRect().top - previewTop);
-        if (dist < minDist) { minDist = dist; slideIdx = i; }
-      }
-      var ranges = getSlideLineRanges();
-      if (slideIdx >= ranges.length) return;
-      var coords = editor.charCoords({ line: ranges[slideIdx].start, ch: 0 }, 'local');
-      scrollLock = true;
-      editor.getScrollerElement().scrollTop = coords.top;
-      setTimeout(function () { scrollLock = false; }, 50);
+    previewPane.addEventListener('scroll', function () {
+      if (activePane !== 'preview' || !previewOpen) return;
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(function () {
+        var wraps = previewPane.querySelectorAll('.sp-wrap');
+        if (!wraps.length) return;
+        var previewScrollTop = previewPane.scrollTop;
+        var slideIdx = 0;
+        var slideProgress = 0;
+        var minDist = Infinity;
+        for (var i = 0; i < wraps.length; i++) {
+          var wrapOffset = wraps[i].offsetTop;
+          var dist = Math.abs(wrapOffset - previewScrollTop);
+          if (dist < minDist) {
+            minDist = dist;
+            slideIdx = i;
+            slideProgress = wraps[i].offsetHeight > 0
+              ? Math.min(1, Math.max(0, (previewScrollTop - wrapOffset) / wraps[i].offsetHeight))
+              : 0;
+          }
+        }
+        var ranges = getSlideLineRanges();
+        if (slideIdx >= ranges.length) return;
+        var range = ranges[slideIdx];
+        var targetLine = Math.round(range.start + slideProgress * (range.end - range.start));
+        var coords = editor.charCoords({ line: targetLine, ch: 0 }, 'local');
+        editor.getScrollerElement().scrollTo({ top: coords.top, behavior: 'smooth' });
+      }, 80);
     });
   }
 
@@ -537,6 +628,18 @@
     scalePreviewSlides();
     previewEl.scrollTop = savedScroll;
     setTimeout(function () { scrollLock = false; }, 100);
+
+    // Click a preview slide → jump editor to that slide
+    previewEl.querySelectorAll('.sp-wrap').forEach(function (wrap, i) {
+      wrap.style.cursor = 'pointer';
+      wrap.addEventListener('click', function () {
+        var ranges = getSlideLineRanges();
+        if (!ranges[i] || !editor) return;
+        var coords = editor.charCoords({ line: ranges[i].start, ch: 0 }, 'local');
+        editor.getScrollerElement().scrollTo({ top: coords.top, behavior: 'smooth' });
+        editor.focus();
+      });
+    });
   }
 
   function scalePreviewSlides() {
@@ -647,6 +750,126 @@
   window.addEventListener('beforeunload', function (e) {
     if (isDirty) { e.preventDefault(); e.returnValue = ''; }
   });
+
+  // ── Find & Replace ─────────────────────────────────────────────────────────
+
+  var frpMarks = [], frpMatches = [], frpCurrentIdx = -1;
+
+  function openFindReplace() {
+    var panel = document.getElementById('find-replace-panel');
+    if (!panel) panel = buildFrpPanel();
+    panel.style.display = 'flex';
+    var findInput = document.getElementById('frp-find');
+    var sel = editor && editor.getSelection();
+    if (sel) findInput.value = sel;
+    findInput.focus();
+    findInput.select();
+    frpSearch();
+  }
+
+  function closeFindReplace() {
+    var panel = document.getElementById('find-replace-panel');
+    if (panel) panel.style.display = 'none';
+    frpClearMarks();
+    if (editor) editor.focus();
+  }
+
+  function buildFrpPanel() {
+    var panel = document.createElement('div');
+    panel.id = 'find-replace-panel';
+    panel.innerHTML =
+      '<div class="frp-row">' +
+        '<input id="frp-find" placeholder="Find\u2026" autocomplete="off" spellcheck="false">' +
+        '<span id="frp-count"></span>' +
+        '<button class="frp-btn" id="frp-prev" title="Previous">\u2191</button>' +
+        '<button class="frp-btn" id="frp-next" title="Next">\u2193</button>' +
+        '<button class="frp-btn frp-close-btn" id="frp-close">\u2715</button>' +
+      '</div>' +
+      '<div class="frp-row">' +
+        '<input id="frp-replace" placeholder="Replace with\u2026" autocomplete="off" spellcheck="false">' +
+        '<button class="frp-btn frp-action-btn" id="frp-replace-one">Replace</button>' +
+        '<button class="frp-btn frp-action-btn" id="frp-replace-all">All</button>' +
+      '</div>';
+    var editorPane = document.getElementById('editor-pane');
+    editorPane.insertBefore(panel, editorPane.firstChild);
+    document.getElementById('frp-find').addEventListener('input', frpSearch);
+    document.getElementById('frp-next').addEventListener('click', function () { frpMove(1); });
+    document.getElementById('frp-prev').addEventListener('click', function () { frpMove(-1); });
+    document.getElementById('frp-close').addEventListener('click', closeFindReplace);
+    document.getElementById('frp-replace-one').addEventListener('click', frpReplaceOne);
+    document.getElementById('frp-replace-all').addEventListener('click', frpReplaceAll);
+    document.getElementById('frp-find').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); frpMove(e.shiftKey ? -1 : 1); }
+      if (e.key === 'Escape') closeFindReplace();
+    });
+    document.getElementById('frp-replace').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); frpReplaceOne(); }
+      if (e.key === 'Escape') closeFindReplace();
+    });
+    return panel;
+  }
+
+  function frpClearMarks() {
+    frpMarks.forEach(function (m) { m.clear(); });
+    frpMarks = []; frpMatches = []; frpCurrentIdx = -1;
+  }
+
+  function frpSearch() {
+    frpClearMarks();
+    var query = document.getElementById('frp-find').value;
+    var countEl = document.getElementById('frp-count');
+    if (!query || !editor) { countEl.textContent = ''; return; }
+    var cursor = editor.getSearchCursor(query, CodeMirror.Pos(0, 0), { caseFold: true });
+    while (cursor.findNext()) {
+      frpMatches.push({ from: cursor.from(), to: cursor.to() });
+      frpMarks.push(editor.markText(cursor.from(), cursor.to(), { className: 'frp-match' }));
+    }
+    if (frpMatches.length) { frpCurrentIdx = 0; frpHighlightCurrent(); }
+    else countEl.textContent = 'No results';
+  }
+
+  function frpHighlightCurrent() {
+    frpMarks.forEach(function (m, i) {
+      m.clear();
+      frpMarks[i] = editor.markText(frpMatches[i].from, frpMatches[i].to, {
+        className: i === frpCurrentIdx ? 'frp-match-current' : 'frp-match',
+      });
+    });
+    editor.scrollIntoView(frpMatches[frpCurrentIdx], 80);
+    document.getElementById('frp-count').textContent = (frpCurrentIdx + 1) + ' / ' + frpMatches.length;
+  }
+
+  function frpMove(dir) {
+    if (!frpMatches.length) return;
+    frpCurrentIdx = (frpCurrentIdx + dir + frpMatches.length) % frpMatches.length;
+    frpHighlightCurrent();
+  }
+
+  function frpReplaceOne() {
+    if (!frpMatches.length || frpCurrentIdx < 0) return;
+    var m = frpMatches[frpCurrentIdx];
+    editor.replaceRange(document.getElementById('frp-replace').value, m.from, m.to);
+    frpSearch();
+  }
+
+  function frpReplaceAll() {
+    var query = document.getElementById('frp-find').value;
+    if (!query || !frpMatches.length) return;
+    var repl = document.getElementById('frp-replace').value;
+    editor.operation(function () {
+      var cursor = editor.getSearchCursor(query, CodeMirror.Pos(0, 0), { caseFold: true });
+      while (cursor.findNext()) cursor.replace(repl);
+    });
+    frpSearch();
+  }
+
+  // Capture Cmd/Ctrl+F before browser native find
+  document.addEventListener('keydown', function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+      e.preventDefault();
+      openFindReplace();
+    }
+  }, true);
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
 
