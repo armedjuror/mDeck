@@ -4,70 +4,240 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>mDeck — markdown to slides, AI ready</title>
+  <meta name="description" content="Write markdown. Present slides. Let AI build your decks via MCP. Free and open source.">
   {% load static %}
+  <link rel="icon" type="image/svg+xml" href="{% static 'mdeck/favicon.svg' %}">
   <link rel="stylesheet" href="{% static 'mdeck/css/base.css' %}">
   <style>
     body.page-body { overflow: auto; height: auto; }
 
+    /* ── Hero ── */
     .hero {
-      max-width: 700px;
+      max-width: 780px;
       margin: 0 auto;
-      padding: 80px 24px 60px;
+      padding: 72px 24px 64px;
       text-align: center;
     }
 
-    .hero-logo {
-      font-size: 48px;
-      font-weight: 700;
-      color: var(--text);
-      letter-spacing: -2px;
-      margin-bottom: 16px;
-      line-height: 1;
+    .oss-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(74,222,128,0.08);
+      border: 1px solid rgba(74,222,128,0.3);
+      border-radius: 2px;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+      font-family: var(--font-body);
     }
 
-    .hero-logo .logo-d { color: var(--accent); }
+    .hero-headline {
+      font-size: clamp(32px, 6vw, 54px);
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
 
-    .hero-tagline {
-      font-size: 16px;
+    .hero-headline .accent { color: var(--accent); }
+
+    .hero-sub {
+      font-size: 15px;
       color: var(--muted);
-      margin-bottom: 40px;
-      line-height: 1.5;
+      line-height: 1.7;
+      max-width: 520px;
+      margin: 0 auto 40px;
     }
 
     .hero-actions {
       display: flex;
-      gap: 12px;
+      gap: 10px;
       justify-content: center;
       flex-wrap: wrap;
+      margin-bottom: 20px;
     }
 
-    .features {
+    .github-star-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--text);
+      font-family: var(--font-body);
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .github-star-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .github-star-btn svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
+
+    .hero-note {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Divider ── */
+    .section-divider {
       max-width: 900px;
       margin: 0 auto;
-      padding: 0 24px 80px;
+      padding: 0 24px;
+      border: none;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-label {
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+      margin-top: 0;
+    }
+
+    /* ── How it works ── */
+    .how-section {
+      max-width: 840px;
+      margin: 0 auto;
+      padding: 60px 24px;
+    }
+
+    .how-steps {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      position: relative;
+    }
+
+    .how-steps::before {
+      content: '';
+      position: absolute;
+      top: 20px;
+      left: calc(16.66% + 20px);
+      right: calc(16.66% + 20px);
+      height: 1px;
+      background: var(--border);
+      z-index: 0;
+    }
+
+    .how-step {
+      text-align: center;
+      padding: 0 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .how-step-num {
+      width: 40px;
+      height: 40px;
+      border-radius: 2px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      margin: 0 auto 16px;
+    }
+
+    .how-step-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .how-step-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── Code preview ── */
+    .code-section {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 24px 60px;
+    }
+
+    .code-window {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .code-window-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    .code-window-body {
+      padding: 20px 24px;
+      font-family: var(--font-body);
+      font-size: 13px;
+      line-height: 1.8;
+      color: var(--muted);
+      overflow-x: auto;
+    }
+
+    .code-window-body .h2   { color: var(--accent); font-weight: 600; }
+    .code-window-body .h3   { color: #93c5fd; }
+    .code-window-body .sep  { color: #666; }
+    .code-window-body .math { color: #f0a58a; }
+    .code-window-body .bold { color: var(--text); }
+
+    /* ── Features ── */
+    .features-section {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 24px 60px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
     }
 
     .feature-card {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
       padding: 24px;
+      transition: background 0.15s;
     }
 
+    .feature-card:hover { background: #1f1f1f; }
+
     .feature-icon {
-      font-size: 24px;
+      font-size: 20px;
       margin-bottom: 12px;
-      color: var(--accent);
+      display: block;
     }
 
     .feature-title {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       color: var(--text);
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .feature-desc {
@@ -76,35 +246,109 @@
       line-height: 1.6;
     }
 
-    .code-example {
-      max-width: 600px;
-      margin: 0 auto 60px;
-      padding: 0 24px;
+    /* ── MCP section ── */
+    .mcp-section {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 24px 60px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: start;
     }
 
-    .code-example pre {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px 24px;
-      font-family: var(--font-body);
+    .mcp-copy h2 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+      line-height: 1.3;
+    }
+
+    .mcp-copy p {
       font-size: 13px;
       color: var(--muted);
       line-height: 1.7;
-      overflow-x: auto;
-      text-align: left;
+      margin-bottom: 16px;
     }
 
-    .code-example pre .accent { color: var(--accent); }
-    .code-example pre .text  { color: var(--text); }
+    .mcp-tag {
+      display: inline-block;
+      background: rgba(74,222,128,0.08);
+      border: 1px solid rgba(74,222,128,0.25);
+      border-radius: 2px;
+      padding: 3px 8px;
+      font-size: 10px;
+      color: var(--accent);
+      letter-spacing: 0.3px;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
 
-    .section-label {
-      text-align: center;
-      font-size: 11px;
+    .terminal {
+      background: #0a0a0a;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .terminal-body {
+      padding: 16px 18px;
+      font-family: var(--font-body);
+      font-size: 12px;
+      line-height: 1.8;
       color: var(--muted);
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      margin-bottom: 24px;
+    }
+
+    .terminal-body .prompt { color: var(--accent); }
+    .terminal-body .cmd    { color: var(--text); }
+    .terminal-body .out    { color: #666; }
+    .terminal-body .ok     { color: var(--accent); }
+
+    /* ── OSS CTA ── */
+    .oss-section {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 0 24px 72px;
+      text-align: center;
+    }
+
+    .oss-section h2 {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+    }
+
+    .oss-section p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 28px;
+    }
+
+    .oss-links {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .how-steps { grid-template-columns: 1fr; gap: 32px; }
+      .how-steps::before { display: none; }
+      .mcp-section { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -116,78 +360,238 @@
     <div class="nav-spacer"></div>
     <ul class="nav-links" id="nav-links">
       <li><a href="{% url 'explore' %}">Explore</a></li>
+      <li>
+        <a href="https://github.com/armedjuror/mdnotes" target="_blank" rel="noopener" class="github-star-btn" style="padding:5px 11px;font-size:12px">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          Star
+        </a>
+      </li>
       <li><a href="{% url 'account_signup' %}" class="nav-btn accent">Sign up</a></li>
       <li><a href="{% url 'account_login' %}" class="nav-btn">Sign in</a></li>
     </ul>
   </div>
 </nav>
 
+<!-- ── Hero ── -->
 <section class="hero">
-  <div class="hero-logo">m<span class="logo-d">D</span>eck</div>
-  <p class="hero-tagline">
-    Write markdown. Present slides.<br>
-    Let AI build your decks via MCP.
-  </p>
-  <div class="hero-actions">
-    <a href="{% url 'account_signup' %}" class="btn btn-primary">Get started</a>
-    <a href="{% url 'account_login' %}" class="btn btn-secondary">Sign in</a>
-    <a href="{% url 'explore' %}" class="btn btn-secondary">Browse decks</a>
+  <div class="oss-badge">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    Open Source · MIT License
   </div>
+
+  <h1 class="hero-headline">
+    Markdown to slides.<br>
+    <span class="accent">AI ready.</span>
+  </h1>
+
+  <p class="hero-sub">
+    Write notes in markdown, present them as beautiful slideshows,
+    export to PDF — and let Claude or any MCP client build your
+    decks directly via the built-in AI API.
+  </p>
+
+  <div class="hero-actions">
+    <a href="{% url 'account_signup' %}" class="btn btn-primary">Get started free</a>
+    <a href="{% url 'explore' %}" class="btn btn-secondary">Browse decks</a>
+    <a href="https://github.com/armedjuror/mdnotes" target="_blank" rel="noopener" class="github-star-btn">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      Star on GitHub
+    </a>
+  </div>
+  <p class="hero-note">Free forever · No credit card · Self-hostable</p>
 </section>
 
-<div class="code-example">
-  <p class="section-label">Slide format</p>
-  <pre><span class="accent">## Relations and Functions</span>
-<span class="text">### Class 11 · NCERT Chapter 2</span>
+<hr class="section-divider">
 
-<span class="text">Given two sets $A$ and $B$:</span>
-<span class="text">$$A \times B = \{(a,b) : a \in A,\ b \in B\}$$</span>
-
-<span class="accent">---</span>
-
-<span class="accent">## Key Properties</span>
-
-<span class="text">- If $n(A) = p$ and $n(B) = q$, then $n(A \times B) = pq$</span>
-<span class="text">- $A \times B \neq B \times A$ in general</span>
-<span class="text">- $A \times \phi = \phi$</span></pre>
+<!-- ── How it works ── -->
+<div class="how-section">
+  <p class="section-label">How it works</p>
+  <div class="how-steps">
+    <div class="how-step">
+      <div class="how-step-num">1</div>
+      <div class="how-step-title">Write in Markdown</div>
+      <div class="how-step-desc">Use the CodeMirror editor with live preview. Separate slides with <code style="color:var(--accent);font-size:11px">---</code>. Math, code, tables — all supported.</div>
+    </div>
+    <div class="how-step">
+      <div class="how-step-num">2</div>
+      <div class="how-step-title">Present or export</div>
+      <div class="how-step-desc">Launch a full-screen Reveal.js slideshow instantly, or download a PDF with one click.</div>
+    </div>
+    <div class="how-step">
+      <div class="how-step-num">3</div>
+      <div class="how-step-title">Let AI do it</div>
+      <div class="how-step-desc">Connect Claude or any MCP client. Say "make a deck on Newton's laws" — your slides appear automatically.</div>
+    </div>
+  </div>
 </div>
 
-<div class="features">
-  <div class="feature-card">
-    <div class="feature-icon">&#9998;</div>
-    <div class="feature-title">Markdown editor</div>
-    <div class="feature-desc">CodeMirror editor with live side-by-side preview. KaTeX math, syntax-highlighted code blocks.</div>
+<hr class="section-divider">
+
+<!-- ── Code preview ── -->
+<div class="code-section" style="padding-top:60px">
+  <p class="section-label">Slide format</p>
+  <div class="code-window">
+    <div class="code-window-bar">
+      <span class="dot" style="background:#ff5f57"></span>
+      <span class="dot" style="background:#febc2e"></span>
+      <span class="dot" style="background:#28c840"></span>
+      <span style="font-size:11px;color:var(--muted);margin-left:6px">relations-functions.md</span>
+    </div>
+    <div class="code-window-body">
+<span class="h2">## Relations and Functions</span>
+<span class="h3">### Class 11 · NCERT Chapter 2</span>
+
+Given two non-empty sets $A$ and $B$:
+<span class="math">$$A \times B = \{(a,b) : a \in A,\ b \in B\}$$</span>
+<span class="sep">
+---
+</span>
+<span class="h2">## Key Properties</span>
+
+- If $n(A) = p$ and $n(B) = q$, then <span class="math">$n(A \times B) = pq$</span>
+- <span class="bold">$A \times B \neq B \times A$</span> in general
+- $A \times \varnothing = \varnothing$
+<span class="sep">
+---
+</span>
+<span class="h2">## Code Example</span>
+
+```python
+def cartesian_product(A, B):
+    return [(a, b) for a in A for b in B]
+```</div>
   </div>
-  <div class="feature-card">
-    <div class="feature-icon">&#9654;</div>
-    <div class="feature-title">Reveal.js slideshow</div>
-    <div class="feature-desc">Beautiful presentations with keyboard navigation, fullscreen, laser pointer, and touch gestures.</div>
+</div>
+
+<hr class="section-divider" style="margin-top:0">
+
+<!-- ── Features ── -->
+<div class="features-section" style="padding-top:60px">
+  <p class="section-label">Everything you need</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <span class="feature-icon">&#9998;</span>
+      <div class="feature-title">Markdown editor</div>
+      <div class="feature-desc">CodeMirror 5, Dracula theme, line numbers, live split-pane preview that scales pixel-perfect to match the slideshow.</div>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">&#9654;</span>
+      <div class="feature-title">Reveal.js slideshow</div>
+      <div class="feature-desc">Fade transitions, keyboard navigation, fullscreen mode, laser pointer, slide overview, and touch gestures.</div>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">&#128196;</span>
+      <div class="feature-title">PDF export</div>
+      <div class="feature-desc">One-click PDF download via html2pdf.js. Continuous layout, crisp text, all math and code intact.</div>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">&#129302;</span>
+      <div class="feature-title">MCP server — AI native</div>
+      <div class="feature-desc">Full OAuth 2.0 with Dynamic Client Registration. Connect Claude.ai web with one URL — no manual credentials.</div>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">&#128220;</span>
+      <div class="feature-title">KaTeX math</div>
+      <div class="feature-desc">Inline <code style="font-size:11px">$formula$</code> and block <code style="font-size:11px">$$formula$$</code> on every slide. Renders server-side, no flicker.</div>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">&#127912;</span>
+      <div class="feature-title">6 themes · 7 fonts</div>
+      <div class="feature-desc">Dark, chalk, sepia, ocean, paper, forest — per deck. JetBrains Mono, Inter, Merriweather and more.</div>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">&#127758;</span>
+      <div class="feature-title">Public gallery</div>
+      <div class="feature-desc">Publish and share decks. Allow the community to copy and remix your work with one click.</div>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">&#128193;</span>
+      <div class="feature-title">Categories</div>
+      <div class="feature-desc">Nested category tree to organise decks by subject, class, or any structure you need.</div>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">&#128274;</span>
+      <div class="feature-title">Google OAuth</div>
+      <div class="feature-desc">Sign in with Google or email/password. Allauth-powered, production-ready authentication.</div>
+    </div>
   </div>
-  <div class="feature-card">
-    <div class="feature-icon">&#128196;</div>
-    <div class="feature-title">PDF export</div>
-    <div class="feature-desc">One-click PDF download of all slides as a continuous document.</div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ── MCP / AI section ── -->
+<div class="mcp-section" style="padding-top:60px">
+  <div class="mcp-copy">
+    <h2>Let Claude build<br>your decks</h2>
+    <p>
+      mDeck is an MCP server. Connect Claude.ai with a single URL and it can
+      create, update, and append slides directly — while following your slide
+      format rules automatically.
+    </p>
+    <p>
+      Uses the full MCP spec: OAuth 2.0, Dynamic Client Registration,
+      PKCE, JSON-RPC 2.0. Works with Claude.ai web, Claude Code, and
+      any MCP-compatible client.
+    </p>
+    <div>
+      <span class="mcp-tag">OAuth 2.0</span>
+      <span class="mcp-tag">PKCE</span>
+      <span class="mcp-tag">Dynamic Registration</span>
+      <span class="mcp-tag">JSON-RPC 2.0</span>
+      <span class="mcp-tag">MCP 2025-03-26</span>
+    </div>
   </div>
-  <div class="feature-card">
-    <div class="feature-icon">&#129302;</div>
-    <div class="feature-title">AI-native (MCP)</div>
-    <div class="feature-desc">Generate API keys and connect Claude or any MCP-compatible AI to create and update decks directly.</div>
+  <div class="terminal">
+    <div class="terminal-bar">
+      <span class="dot" style="background:#ff5f57"></span>
+      <span class="dot" style="background:#febc2e"></span>
+      <span class="dot" style="background:#28c840"></span>
+      <span style="font-size:11px;color:var(--muted);margin-left:6px">claude code</span>
+    </div>
+    <div class="terminal-body">
+<span class="prompt">$</span> <span class="cmd">claude mcp add mdeck \</span>
+  <span class="cmd">--transport http \</span>
+  <span class="cmd">--url https://mdeck.armedjuror.in/api/mcp/ \</span>
+  <span class="cmd">--header "Authorization: Bearer YOUR_KEY"</span>
+
+<span class="out">✓ Added MCP server: mdeck</span>
+
+<span class="prompt">></span> <span class="cmd">Create a 5-slide deck on Newton's Laws</span>
+  <span class="cmd">with equations and examples</span>
+
+<span class="ok">✓ Created deck: newtons-laws</span>
+<span class="ok">✓ 5 slides · KaTeX math · code examples</span></div>
   </div>
-  <div class="feature-card">
-    <div class="feature-icon">&#127758;</div>
-    <div class="feature-title">Public gallery</div>
-    <div class="feature-desc">Publish decks to share with the world. Allow others to copy and remix your work.</div>
-  </div>
-  <div class="feature-card">
-    <div class="feature-icon">&#127912;</div>
-    <div class="feature-title">6 slide themes</div>
-    <div class="feature-desc">Dark, chalk, sepia, ocean, paper, and forest — per-deck, no full page reload.</div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ── Open Source CTA ── -->
+<div class="oss-section" style="padding-top:60px">
+  <h2>Free and open source</h2>
+  <p>
+    mDeck is MIT licensed. Self-host it for your school, fork it, contribute features,
+    or just use the hosted version for free. No paywalls, no feature limits.
+  </p>
+  <div class="oss-links">
+    <a href="https://github.com/armedjuror/mdnotes" target="_blank" rel="noopener" class="github-star-btn" style="padding:10px 20px;font-size:13px">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      ⭐ Star on GitHub
+    </a>
+    <a href="{% url 'account_signup' %}" class="btn btn-primary">Start for free</a>
   </div>
 </div>
 
 <footer class="site-footer">
-  <div class="container">
+  <div class="container" style="flex-direction:column;gap:8px">
     <span class="footer-text">mDeck &mdash; markdown to slides, AI ready</span>
+    <span class="footer-text">
+      <a href="https://github.com/armedjuror/mdnotes" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:none">GitHub</a>
+      &nbsp;&middot;&nbsp;
+      <a href="{% url 'explore' %}" style="color:var(--muted);text-decoration:none">Explore decks</a>
+      &nbsp;&middot;&nbsp;
+      MIT License
+    </span>
   </div>
 </footer>
 

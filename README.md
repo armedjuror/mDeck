@@ -271,6 +271,57 @@ static/mdeck/
 
 ---
 
+## Contributing
+
+Contributions are welcome and appreciated. mDeck is a small open-source project — even small fixes, docs improvements, or feature ideas make a difference.
+
+### Ways to contribute
+
+- **Bug reports** — Open an issue describing the bug, steps to reproduce, and expected behaviour
+- **Feature requests** — Open an issue with the `enhancement` label and describe the use case
+- **Code contributions** — Fork the repo, make your changes, open a pull request
+- **Translations** — UI is currently English-only; PRs for i18n are welcome
+- **Deck templates** — Share well-formatted example decks via the public gallery
+
+### Development setup
+
+```bash
+git clone https://github.com/armedjuror/mdnotes.git
+cd mdnotes
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env        # edit with your settings
+python manage.py migrate
+python manage.py seed
+python manage.py runserver
+```
+
+### Pull request guidelines
+
+1. **One PR per concern** — keep changes focused; avoid mixing bug fixes with refactors
+2. **No build step** — the frontend is vanilla JS + CDN. Do not introduce npm, webpack, or any bundler
+3. **Keep the design system** — use existing CSS variables (`--bg`, `--accent`, `--surface`, etc.). No new external CSS frameworks
+4. **No rounded corners > 2px** — design rule
+5. **Test locally** — run the dev server and verify your changes work before opening a PR
+6. **Describe your PR** — explain what changed and why; screenshots help for UI changes
+
+### Project conventions
+
+| Convention | Rule |
+|---|---|
+| Slide separator | `---` on its own line with blank lines above and below |
+| Python style | PEP 8, no type annotations required |
+| Templates | Django templates, no React/Vue |
+| JS | Vanilla ES5/ES6, no frameworks |
+| CSS | CSS variables from `:root`, no utility-class frameworks |
+
+### Reporting security issues
+
+Please do **not** open a public issue for security vulnerabilities.
+Email directly: **armedjuror [at] gmail [dot] com**
+
+---
+
 ## License
 
 MIT
