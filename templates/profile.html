@@ -220,11 +220,107 @@ Client Secret:(shown once when you create the app)</pre>
       </div>
     </div>
 
-    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-      <div style="font-size:11px;color:var(--muted);line-height:1.7">
-        Available tools: <code style="color:var(--text)">list_decks</code> &middot; <code style="color:var(--text)">get_deck</code> &middot; <code style="color:var(--text)">create_deck</code> &middot; <code style="color:var(--text)">update_deck</code> &middot; <code style="color:var(--text)">append_slide</code> &middot; <code style="color:var(--text)">list_categories</code>
-      </div>
-      <a href="{% url 'slide_template_download' %}" class="btn btn-ghost btn-sm" download style="font-size:11px;white-space:nowrap">↓ Slide template</a>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.7">
+      Available tools: <code style="color:var(--text)">list_decks</code> &middot; <code style="color:var(--text)">get_deck</code> &middot; <code style="color:var(--text)">create_deck</code> &middot; <code style="color:var(--text)">update_deck</code> &middot; <code style="color:var(--text)">append_slide</code> &middot; <code style="color:var(--text)">list_categories</code>
+    </div>
+  </div>
+
+  <!-- Slide Writing Guide -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px">
+    <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Slide Writing Guide</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:16px">
+      A template covering all slide types: bullets, math, code blocks, tables, and formatting tips.
+      Works as a starting point for your own decks or as a reference for Claude when creating slides.
+    </div>
+    <a href="{% url 'slide_template_download' %}" class="btn btn-secondary" download>↓ Download slide-template.md</a>
+  </div>
+
+  <!-- AI Prompt -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px">
+    <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">AI Prompt — Convert any resource to slides</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+      Paste this into any AI (Claude, ChatGPT, Gemini…) along with your PDF or resource to generate a deck in the exact mDeck format.
+    </div>
+    <div style="position:relative">
+      <pre id="ai-prompt-text" style="background:#111;border:1px solid var(--border);padding:16px;font-size:11px;font-family:var(--font-code);color:var(--text);white-space:pre-wrap;word-break:break-word;margin:0;line-height:1.7;max-height:260px;overflow-y:auto">You are a slide deck creator. Convert the attached resource (PDF, document, or pasted text) into a structured markdown slide deck. Follow every rule below exactly.
+
+── SLIDE FORMAT ────────────────────────────────────────────────
+Slides are separated by a blank line, three dashes, then a blank line:
+
+## Slide Title
+Content here.
+
+---
+
+## Next Slide
+Content here.
+
+Every slide MUST start with ## Title (h2). Use ### Subtitle for a subtitle on the same slide. Never use --- anywhere inside a slide — it is the slide separator.
+
+── CONTENT RULES ───────────────────────────────────────────────
+• STRICTLY based on the resource. Do not add, infer, or hallucinate anything not present in the source.
+• One concept per slide. Never mix unrelated ideas.
+• Max content per slide: 6–8 bullets OR 1 code block OR 1 equation block OR 1 table. Do not combine multiple heavy elements on one slide.
+• Bullet text: max ~10 words per point. Use sub-bullets sparingly (max 2 levels).
+• Prose: max 2–3 short sentences per slide. Prefer bullets over paragraphs.
+• Total words per slide: aim for under 80 words of visible content.
+
+── FORMATTING ELEMENTS ─────────────────────────────────────────
+
+Bullets &amp; emphasis:
+- Plain bullet point
+- **Bold** for key terms    *Italic* for emphasis    `code` for names/commands
+
+Code blocks — always include the language tag:
+```python
+def example():
+    return "specify the language"
+```
+
+Block quotations — for direct quotes from the source:
+> "Exact quote from the resource."
+> — Author / Source, p. X
+
+LaTeX math — inline (within a sentence):
+The formula $E = mc^2$ shows mass-energy equivalence.
+
+LaTeX math — block (standalone, centered on its own line):
+$$
+\nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0}
+$$
+
+Tables — for comparisons or structured data from the resource:
+| Column A | Column B | Column C |
+|---|---|---|
+| value | value | value |
+
+Images — only if the resource contains a figure with a usable URL or path:
+![Figure N: caption from resource](url-or-path)
+
+Diagrams — when no image is available, use ASCII/text flow:
+```
+Input → Process → Output
+           ↓
+      Feedback loop
+```
+
+── SLIDE STRUCTURE ─────────────────────────────────────────────
+1. Title slide   — ## [Deck Title]  then  ### Source: [document name]
+2. Overview      — 2nd slide: brief outline (4–6 bullets)
+3. Content slides — one concept each, strictly from the source
+4. Key terms     — define important terms extracted from the resource
+5. Summary       — last slide: 3–5 key takeaways, nothing invented
+
+── DO NOT ──────────────────────────────────────────────────────
+✗ Invent examples, analogies, or content not in the source
+✗ Add opinions, commentary, or external knowledge
+✗ Put more than 1 code block or 1 equation block on a single slide
+✗ Use --- anywhere except as the slide separator
+✗ Wrap the output in a code fence or add any explanation text
+
+── OUTPUT ──────────────────────────────────────────────────────
+Output ONLY the raw markdown. Start directly with the first slide. No preamble, no closing remarks.</pre>
+      <button onclick="copyPrompt()" class="btn btn-ghost btn-sm" style="position:absolute;top:8px;right:8px;font-size:10px">Copy</button>
     </div>
   </div>
 
@@ -408,6 +504,11 @@ Client Secret:(shown once when you create the app)</pre>
         '<button class="btn btn-danger btn-sm" onclick="deleteOAuthApp(' + data.id + ', this)">Delete</button></div>');
     });
   });
+
+  function copyPrompt() {
+    var text = document.getElementById('ai-prompt-text').textContent;
+    navigator.clipboard.writeText(text).then(function () { showToast('Prompt copied!'); });
+  }
 
   function copyOAuthCreds() {
     var id = document.getElementById('new-oauth-client-id').textContent;
