@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mDeck — markdown to slides, AI ready</title>
-  <meta name="description" content="Write markdown. Present slides. Let AI build your decks via MCP. Free and open source.">
+  <title>mDeck — clean slides for technical content</title>
+  <meta name="description" content="Write markdown, get slides. Formulas render exactly. Let AI build your decks. Free and open source.">
   {% load static %}
   <link rel="icon" type="image/svg+xml" href="{% static 'mdeck/favicon.svg' %}">
   <link rel="stylesheet" href="{% static 'mdeck/css/base.css' %}">
@@ -36,7 +36,7 @@
     }
 
     .hero-headline {
-      font-size: clamp(32px, 6vw, 54px);
+      font-size: clamp(30px, 5.5vw, 50px);
       font-weight: 700;
       color: var(--text);
       letter-spacing: -1.5px;
@@ -50,7 +50,7 @@
       font-size: 15px;
       color: var(--muted);
       line-height: 1.7;
-      max-width: 520px;
+      max-width: 560px;
       margin: 0 auto 40px;
     }
 
@@ -104,64 +104,29 @@
       margin-top: 0;
     }
 
-    /* ── How it works ── */
-    .how-section {
-      max-width: 840px;
+    /* ── Story ── */
+    .story-section {
+      max-width: 640px;
       margin: 0 auto;
       padding: 60px 24px;
     }
 
-    .how-steps {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0;
-      position: relative;
+    .story-section p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.85;
+      margin-bottom: 16px;
     }
 
-    .how-steps::before {
-      content: '';
-      position: absolute;
-      top: 20px;
-      left: calc(16.66% + 20px);
-      right: calc(16.66% + 20px);
-      height: 1px;
-      background: var(--border);
-      z-index: 0;
-    }
+    .story-section p:last-child { margin-bottom: 0; }
 
-    .how-step {
-      text-align: center;
-      padding: 0 20px;
-      position: relative;
-      z-index: 1;
-    }
-
-    .how-step-num {
-      width: 40px;
-      height: 40px;
-      border-radius: 2px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--accent);
-      margin: 0 auto 16px;
-    }
-
-    .how-step-title {
-      font-size: 13px;
+    .story-pull {
+      font-size: 17px;
       font-weight: 600;
       color: var(--text);
-      margin-bottom: 8px;
-    }
-
-    .how-step-desc {
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.6;
+      letter-spacing: -0.3px;
+      line-height: 1.5;
+      margin-bottom: 24px;
     }
 
     /* ── Code preview ── */
@@ -200,7 +165,7 @@
 
     .code-window-body .h2   { color: var(--accent); font-weight: 600; }
     .code-window-body .h3   { color: #93c5fd; }
-    .code-window-body .sep  { color: #666; }
+    .code-window-body .sep  { color: #555; }
     .code-window-body .math { color: #f0a58a; }
     .code-window-body .bold { color: var(--text); }
 
@@ -346,8 +311,6 @@
 
     /* ── Responsive ── */
     @media (max-width: 640px) {
-      .how-steps { grid-template-columns: 1fr; gap: 32px; }
-      .how-steps::before { display: none; }
       .mcp-section { grid-template-columns: 1fr; }
     }
   </style>
@@ -361,7 +324,7 @@
     <ul class="nav-links" id="nav-links">
       <li><a href="{% url 'explore' %}">Explore</a></li>
       <li>
-        <a href="https://github.com/armedjuror/mdnotes" target="_blank" rel="noopener" class="github-star-btn" style="padding:5px 11px;font-size:12px">
+        <a href="https://github.com/armedjuror/mDeck" target="_blank" rel="noopener" class="github-star-btn" style="padding:5px 11px;font-size:12px">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           Star
         </a>
@@ -376,60 +339,56 @@
 <section class="hero">
   <div class="oss-badge">
     <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-    Open Source · MIT License
+    Open Source &middot; MIT License
   </div>
 
   <h1 class="hero-headline">
-    Markdown to slides.<br>
-    <span class="accent">AI ready.</span>
+    Clean slides for people who<br>
+    care about <span class="accent">content.</span>
   </h1>
 
   <p class="hero-sub">
-    Write notes in markdown, present them as beautiful slideshows,
-    export to PDF — and let Claude or any MCP client build your
-    decks directly via the built-in AI API.
+    Most AI slide tools generate an image per slide — quick the first time,
+    painful to edit, and unreliable for precise formulas.
+    mDeck gives you editable markdown. You and the AI work on the same source.
   </p>
 
   <div class="hero-actions">
     <a href="{% url 'account_signup' %}" class="btn btn-primary">Get started free</a>
     <a href="{% url 'explore' %}" class="btn btn-secondary">Browse decks</a>
-    <a href="https://github.com/armedjuror/mdnotes" target="_blank" rel="noopener" class="github-star-btn">
+    <a href="https://github.com/armedjuror/mDeck" target="_blank" rel="noopener" class="github-star-btn">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
       Star on GitHub
     </a>
   </div>
-  <p class="hero-note">Free forever · No credit card · Self-hostable</p>
+  <p class="hero-note">Free forever &middot; No credit card &middot; Self-hostable</p>
 </section>
 
 <hr class="section-divider">
 
-<!-- ── How it works ── -->
-<div class="how-section">
-  <p class="section-label">How it works</p>
-  <div class="how-steps">
-    <div class="how-step">
-      <div class="how-step-num">1</div>
-      <div class="how-step-title">Write in Markdown</div>
-      <div class="how-step-desc">Use the CodeMirror editor with live preview. Separate slides with <code style="color:var(--accent);font-size:11px">---</code>. Math, code, tables — all supported.</div>
-    </div>
-    <div class="how-step">
-      <div class="how-step-num">2</div>
-      <div class="how-step-title">Present or export</div>
-      <div class="how-step-desc">Launch a full-screen Reveal.js slideshow instantly, or download a PDF with one click.</div>
-    </div>
-    <div class="how-step">
-      <div class="how-step-num">3</div>
-      <div class="how-step-title">Let AI do it</div>
-      <div class="how-step-desc">Connect Claude or any MCP client. Say "make a deck on Newton's laws" — your slides appear automatically.</div>
-    </div>
-  </div>
+<!-- ── Story ── -->
+<div class="story-section">
+  <p class="story-pull">This started with a specific problem.</p>
+  <p>
+    My mother teaches higher-secondary mathematics using a textbook and a board.
+    She kept asking me to make teaching decks for her chapters.
+    PowerPoint took about 40 minutes per chapter.
+    Other AI tools produced slides as images — fine at first glance, but impossible
+    to fix when a formula was wrong, and the AI had to regenerate the whole slide
+    to change a single symbol.
+  </p>
+  <p>
+    The solution was straightforward: give Claude a chapter PDF and mDeck's AI
+    connection, and get back a markdown deck. Every formula is a text string.
+    Every fix is a text edit. Human and AI keep working on the same file.
+  </p>
 </div>
 
 <hr class="section-divider">
 
 <!-- ── Code preview ── -->
 <div class="code-section" style="padding-top:60px">
-  <p class="section-label">Slide format</p>
+  <p class="section-label">What a deck looks like</p>
   <div class="code-window">
     <div class="code-window-bar">
       <span class="dot" style="background:#ff5f57"></span>
@@ -439,7 +398,7 @@
     </div>
     <div class="code-window-body">
 <span class="h2">## Relations and Functions</span>
-<span class="h3">### Class 11 · NCERT Chapter 2</span>
+<span class="h3">### Class 11 &middot; NCERT Chapter 2</span>
 
 Given two non-empty sets $A$ and $B$:
 <span class="math">$$A \times B = \{(a,b) : a \in A,\ b \in B\}$$</span>
@@ -454,65 +413,64 @@ Given two non-empty sets $A$ and $B$:
 <span class="sep">
 ---
 </span>
-<span class="h2">## Code Example</span>
+<span class="h2">## Cartesian Product in Python</span>
 
 ```python
 def cartesian_product(A, B):
     return [(a, b) for a in A for b in B]
 ```</div>
   </div>
+  <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:14px">
+    Every slide is text. Edit it, version it, hand it to an AI.
+    <a href="{% url 'explore' %}" style="color:var(--accent)">See live decks &rarr;</a>
+  </p>
 </div>
 
-<hr class="section-divider" style="margin-top:0">
+<hr class="section-divider">
 
 <!-- ── Features ── -->
 <div class="features-section" style="padding-top:60px">
-  <p class="section-label">Everything you need</p>
+  <p class="section-label">Built for technical content</p>
   <div class="features-grid">
     <div class="feature-card">
-      <span class="feature-icon">&#9998;</span>
-      <div class="feature-title">Markdown editor</div>
-      <div class="feature-desc">CodeMirror 5, Dracula theme, line numbers, live split-pane preview that scales pixel-perfect to match the slideshow.</div>
-    </div>
-    <div class="feature-card">
-      <span class="feature-icon">&#9654;</span>
-      <div class="feature-title">Reveal.js slideshow</div>
-      <div class="feature-desc">Fade transitions, keyboard navigation, fullscreen mode, laser pointer, slide overview, and touch gestures.</div>
-    </div>
-    <div class="feature-card">
-      <span class="feature-icon">&#128196;</span>
-      <div class="feature-title">PDF export</div>
-      <div class="feature-desc">One-click PDF download via html2pdf.js. Continuous layout, crisp text, all math and code intact.</div>
+      <span class="feature-icon">&#128220;</span>
+      <div class="feature-title">Formulas render exactly</div>
+      <div class="feature-desc">KaTeX math inline <code style="font-size:11px">$...$</code> and block <code style="font-size:11px">$$...$$</code> on every slide. No screenshots, no approximations, no hallucinations.</div>
     </div>
     <div class="feature-card">
       <span class="feature-icon">&#129302;</span>
-      <div class="feature-title">MCP server — AI native</div>
-      <div class="feature-desc">Connect Claude or any AI assistant to create and manage your decks. Add the server URL — everything else is automatic.</div>
+      <div class="feature-title">Hand the AI a chapter. Get a deck back.</div>
+      <div class="feature-desc">Connect Claude or any MCP client. Give it a PDF. It returns an editable markdown deck — formulas, code, and all.</div>
     </div>
     <div class="feature-card">
-      <span class="feature-icon">&#128220;</span>
-      <div class="feature-title">KaTeX math</div>
-      <div class="feature-desc">Inline <code style="font-size:11px">$formula$</code> and block <code style="font-size:11px">$$formula$$</code> on every slide. Renders server-side, no flicker.</div>
+      <span class="feature-icon">&#9998;</span>
+      <div class="feature-title">Write, then present</div>
+      <div class="feature-desc">CodeMirror editor with live split-pane preview. Separate slides with <code style="font-size:11px">---</code>. One keystroke to full-screen slideshow.</div>
     </div>
     <div class="feature-card">
       <span class="feature-icon">&#127912;</span>
-      <div class="feature-title">6 themes · 7 fonts</div>
-      <div class="feature-desc">Dark, chalk, sepia, ocean, paper, forest — per deck. JetBrains Mono, Inter, Merriweather and more.</div>
+      <div class="feature-title">Three design choices. Pick one and write.</div>
+      <div class="feature-desc">Six themes, seven fonts. Choose once per deck. The design is deliberate and minimal — content stays the focus, not decoration.</div>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">&#128196;</span>
+      <div class="feature-title">One click to PDF</div>
+      <div class="feature-desc">Clean continuous layout. All math and code preserved exactly as they render in the slideshow.</div>
     </div>
     <div class="feature-card">
       <span class="feature-icon">&#127758;</span>
-      <div class="feature-title">Public gallery</div>
-      <div class="feature-desc">Publish and share decks. Allow the community to copy and remix your work with one click.</div>
+      <div class="feature-title">Publish and let others build on it</div>
+      <div class="feature-desc">Share decks publicly. Allow the community to copy and adapt your work with one click.</div>
     </div>
     <div class="feature-card">
       <span class="feature-icon">&#128193;</span>
-      <div class="feature-title">Categories</div>
-      <div class="feature-desc">Nested category tree to organise decks by subject, class, or any structure you need.</div>
+      <div class="feature-title">Organise your library</div>
+      <div class="feature-desc">Nested category tree. Group decks by subject, class, or whatever structure suits you.</div>
     </div>
     <div class="feature-card">
       <span class="feature-icon">&#128274;</span>
-      <div class="feature-title">Google OAuth</div>
-      <div class="feature-desc">Sign in with Google or email/password. Allauth-powered, production-ready authentication.</div>
+      <div class="feature-title">Sign in your way</div>
+      <div class="feature-desc">Google or email and password. Email verification included. No extra steps.</div>
     </div>
   </div>
 </div>
@@ -522,21 +480,20 @@ def cartesian_product(A, B):
 <!-- ── MCP / AI section ── -->
 <div class="mcp-section" style="padding-top:60px">
   <div class="mcp-copy">
-    <h2>Let Claude build<br>your decks</h2>
+    <h2>Give Claude a chapter.<br>Get a deck back.</h2>
     <p>
-      mDeck is an MCP server. Connect Claude.ai with a single URL and it can
-      create, update, and append slides directly — while following your slide
-      format rules automatically.
+      Connect Claude to your mDeck account. Drop in a chapter PDF or paste lecture notes.
+      Claude generates a full markdown deck — headings, bullet points, KaTeX formulas,
+      code blocks — and saves it directly to your library.
     </p>
     <p>
-      Works with Claude.ai web, Claude Code, and any MCP-compatible client.
-      Sign in once and Claude remembers your decks, categories, and slide style.
+      Every formula is a text string you can edit. No regenerating images.
+      No copy-pasting from a screenshot. The AI and you work on the same file.
     </p>
     <div>
       <span class="mcp-tag">Claude.ai web</span>
       <span class="mcp-tag">Claude Code</span>
       <span class="mcp-tag">Any MCP client</span>
-      <span class="mcp-tag">No setup needed</span>
     </div>
   </div>
   <div class="terminal">
@@ -549,16 +506,17 @@ def cartesian_product(A, B):
     <div class="terminal-body">
 <span class="prompt">$</span> <span class="cmd">claude mcp add mdeck \</span>
   <span class="cmd">--transport http \</span>
-  <span class="cmd">--url https://mdeck.armedjuror.in/api/mcp/ \</span>
+  <span class="cmd">--url https://mdeck.dev/api/mcp/ \</span>
   <span class="cmd">--header "Authorization: Bearer YOUR_KEY"</span>
 
-<span class="out">✓ Added MCP server: mdeck</span>
+<span class="out">&#10003; Added MCP server: mdeck</span>
 
-<span class="prompt">></span> <span class="cmd">Create a 5-slide deck on Newton's Laws</span>
-  <span class="cmd">with equations and examples</span>
+<span class="prompt">></span> <span class="cmd">Here's Chapter 2 of the textbook.</span>
+  <span class="cmd">Make a deck with all the key theorems.</span>
 
-<span class="ok">✓ Created deck: newtons-laws</span>
-<span class="ok">✓ 5 slides · KaTeX math · code examples</span></div>
+<span class="ok">&#10003; Created deck: relations-functions</span>
+<span class="ok">&#10003; 12 slides &middot; KaTeX math &middot; code examples</span>
+<span class="out">  Edit it at mdeck.dev/decks/relations-functions/</span></div>
   </div>
 </div>
 
@@ -568,13 +526,14 @@ def cartesian_product(A, B):
 <div class="oss-section" style="padding-top:60px">
   <h2>Free and open source</h2>
   <p>
-    mDeck is MIT licensed. Self-host it for your school, fork it, contribute features,
-    or just use the hosted version for free. No paywalls, no feature limits.
+    mDeck is MIT licensed. Use the hosted version for free, self-host it for
+    your school or department, or fork it. No paywalls. No feature tiers.
+    The source is on GitHub.
   </p>
   <div class="oss-links">
-    <a href="https://github.com/armedjuror/mdnotes" target="_blank" rel="noopener" class="github-star-btn" style="padding:10px 20px;font-size:13px">
+    <a href="https://github.com/armedjuror/mDeck" target="_blank" rel="noopener" class="github-star-btn" style="padding:10px 20px;font-size:13px">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-      ⭐ Star on GitHub
+      &#11088; Star on GitHub
     </a>
     <a href="{% url 'account_signup' %}" class="btn btn-primary">Start for free</a>
   </div>
@@ -582,9 +541,9 @@ def cartesian_product(A, B):
 
 <footer class="site-footer">
   <div class="container" style="flex-direction:column;gap:8px">
-    <span class="footer-text">mDeck &mdash; markdown to slides, AI ready</span>
+    <span class="footer-text">mDeck &mdash; clean slides for technical content</span>
     <span class="footer-text">
-      <a href="https://github.com/armedjuror/mdnotes" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:none">GitHub</a>
+      <a href="https://github.com/armedjuror/mDeck" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:none">GitHub</a>
       &nbsp;&middot;&nbsp;
       <a href="{% url 'explore' %}" style="color:var(--muted);text-decoration:none">Explore decks</a>
       &nbsp;&middot;&nbsp;

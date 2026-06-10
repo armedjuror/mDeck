@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Allow: /explore/
+Disallow: /dashboard/
+Disallow: /deck/
+Disallow: /categories/
+Disallow: /profile/
+Disallow: /api/
+Disallow: /oauth/
+Disallow: /admin/
+Disallow: /auth/
+
+Sitemap: https://mdeck.dev/sitemap.xml

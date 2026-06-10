@@ -3,6 +3,51 @@
 
 {% block title %}{{ deck.title }}{% endblock %}
 
+{% if deck.status == 'published' %}
+{% block seo_meta %}
+{# Canonical always points at the public /explore/ URL regardless of which view is serving. #}
+{# This prevents Google from indexing /deck/<slug>/ which requires auth. #}
+<link rel="canonical" href="https://mdeck.dev/explore/{{ deck.slug }}/">
+
+{% if public_view %}
+<meta name="description" content="{{ meta_description|default:deck.title }}">
+
+<!-- Open Graph -->
+<meta property="og:type"        content="article">
+<meta property="og:title"       content="{{ deck.title }} — mDeck">
+<meta property="og:description" content="{{ meta_description|default:deck.title }}">
+<meta property="og:url"         content="https://mdeck.dev/explore/{{ deck.slug }}/">
+<meta property="og:site_name"   content="mDeck">
+
+<!-- Twitter Card -->
+<meta name="twitter:card"        content="summary">
+<meta name="twitter:title"       content="{{ deck.title }} — mDeck">
+<meta name="twitter:description" content="{{ meta_description|default:deck.title }}">
+
+<!-- JSON-LD: LearningResource for eligibility in Google's education rich results -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LearningResource",
+  "learningResourceType": "Presentation",
+  "name": "{{ deck.title|escapejs }}",
+  "description": "{{ meta_description|default:deck.title|escapejs }}",
+  "url": "https://mdeck.dev/explore/{{ deck.slug }}/",
+  "author": {
+    "@type": "Person",
+    "name": "{{ deck.owner.get_full_name|default:deck.owner.email|escapejs }}"
+  },
+  "dateModified": "{{ deck.updated_at|date:'c' }}",
+  "dateCreated": "{{ deck.created_at|date:'c' }}",
+  "keywords": "{{ deck.tags }}",
+  "isAccessibleForFree": true,
+  "inLanguage": "en"
+}
+</script>
+{% endif %}
+{% endblock %}
+{% endif %}
+
 {% block content %}
 <div class="page-content">
 
@@ -87,6 +132,17 @@
       {% if deck.status == 'published' %}View public page &rarr;{% else %}(Available once published){% endif %}
     </a>
   </div>
+  {% endif %}
+
+  {% if public_view and seo_slides %}
+  <!-- Slide content rendered for search engines and screen readers -->
+  <article style="margin-top:40px;border-top:1px solid var(--border);padding-top:32px">
+    {% for slide in seo_slides %}
+    <section style="margin-bottom:28px;padding-bottom:28px;{% if not forloop.last %}border-bottom:1px dashed var(--border);{% endif %}">
+      <pre style="font-family:inherit;white-space:pre-wrap;font-size:13px;color:var(--muted);line-height:1.7;margin:0">{{ slide.raw }}</pre>
+    </section>
+    {% endfor %}
+  </article>
   {% endif %}
 
 </div>

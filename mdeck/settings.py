@@ -17,6 +17,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
+    'django.contrib.sitemaps',
     'allauth',
     'allauth.account',
     'decks',
@@ -99,7 +100,7 @@ ACCOUNT_EMAIL_SUBJECT_PREFIX = ''
 
 # ── Email / Resend ────────────────────────────────────────────────────────────
 RESEND_API_KEY = config('RESEND_API_KEY', default='')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='mDeck <noreply@mdeck.armedjuror.in>')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='mDeck <noreply@mdeck.dev>')
 
 if RESEND_API_KEY:
     EMAIL_BACKEND = 'decks.email_backend.ResendEmailBackend'

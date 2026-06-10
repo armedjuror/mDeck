@@ -7,6 +7,7 @@
   {% load static %}
   <link rel="icon" type="image/svg+xml" href="{% static 'mdeck/favicon.svg' %}">
   <link rel="stylesheet" href="{% static 'mdeck/css/base.css' %}">
+  {% block seo_meta %}{% endblock %}
   {% block extra_head %}{% endblock %}
 </head>
 <body class="page-body">

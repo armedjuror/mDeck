@@ -222,12 +222,43 @@ def explore(request):
     })
 
 
+def _deck_slides_text(deck):
+    """Split deck content into slide texts, stripping markdown syntax for SEO."""
+    import re
+    slides = []
+    for raw in deck.content.split('\n---\n'):
+        raw = raw.strip()
+        if not raw:
+            continue
+        # Strip math blocks/inline, code fences, and heading markers for plain text
+        text = re.sub(r'\$\$[\s\S]*?\$\$', '', raw)
+        text = re.sub(r'\$[^$\n]+\$', '', text)
+        text = re.sub(r'```[\s\S]*?```', '', text)
+        text = re.sub(r'^#{1,6}\s*', '', text, flags=re.MULTILINE)
+        text = re.sub(r'[*_`~]', '', text)
+        text = re.sub(r'\n{3,}', '\n\n', text).strip()
+        slides.append({'raw': raw, 'text': text})
+    return slides
+
+
+def _deck_meta_description(deck, slides):
+    if deck.description:
+        return deck.description[:160]
+    for slide in slides:
+        if slide['text']:
+            return slide['text'][:160].replace('\n', ' ')
+    return f'{deck.title} — a slide deck on mDeck'
+
+
 def explore_deck(request, slug):
     deck = get_object_or_404(Deck, slug=slug, status='published')
     Deck.objects.filter(pk=deck.pk).update(view_count=F('view_count') + 1)
+    slides = _deck_slides_text(deck)
     return render(request, 'deck_detail.html', {
         'deck': deck,
         'public_view': True,
+        'seo_slides': slides,
+        'meta_description': _deck_meta_description(deck, slides),
     })
 
 
