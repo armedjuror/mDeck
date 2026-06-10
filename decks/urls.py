@@ -54,4 +54,5 @@ urlpatterns = [
     path('api/deck/<slug:slug>/autosave/', api.deck_autosave, name='api_deck_autosave'),
     path('api/mcp/manifest.json', api.mcp_manifest, name='mcp_manifest'),
     path('api/mcp/', api.mcp_endpoint, name='mcp_endpoint'),
+    path('api/mcp', api.mcp_endpoint, name='mcp_endpoint_noslash'),
 ]
