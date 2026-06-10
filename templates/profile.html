@@ -62,8 +62,8 @@
     </div>
 
     <div style="margin-top:16px;font-size:11px;color:var(--muted);line-height:1.6">
-      MCP endpoint: <code style="color:var(--text)">{{ request.scheme }}://{{ request.get_host }}/api/mcp/</code><br>
-      Manifest: <code style="color:var(--text)">{{ request.scheme }}://{{ request.get_host }}/api/mcp/manifest.json</code>
+      MCP endpoint: <code style="color:var(--text)">https://{{ request.get_host }}/api/mcp/</code><br>
+      Manifest: <code style="color:var(--text)">https://{{ request.get_host }}/api/mcp/manifest.json</code>
     </div>
   </div>
 
@@ -103,8 +103,8 @@
     </div>
 
     <div style="margin-top:16px;font-size:11px;color:var(--muted);line-height:1.6">
-      OAuth authorize: <code style="color:var(--text)">{{ request.scheme }}://{{ request.get_host }}/oauth/authorize/</code><br>
-      Token endpoint: <code style="color:var(--text)">{{ request.scheme }}://{{ request.get_host }}/oauth/token/</code>
+      OAuth authorize: <code style="color:var(--text)">https://{{ request.get_host }}/oauth/authorize/</code><br>
+      Token endpoint: <code style="color:var(--text)">https://{{ request.get_host }}/oauth/token/</code>
     </div>
   </div>
 
@@ -220,8 +220,11 @@ Client Secret:(shown once when you create the app)</pre>
       </div>
     </div>
 
-    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.7">
-      Available tools: <code style="color:var(--text)">list_decks</code> &middot; <code style="color:var(--text)">get_deck</code> &middot; <code style="color:var(--text)">create_deck</code> &middot; <code style="color:var(--text)">update_deck</code> &middot; <code style="color:var(--text)">append_slide</code> &middot; <code style="color:var(--text)">list_categories</code>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div style="font-size:11px;color:var(--muted);line-height:1.7">
+        Available tools: <code style="color:var(--text)">list_decks</code> &middot; <code style="color:var(--text)">get_deck</code> &middot; <code style="color:var(--text)">create_deck</code> &middot; <code style="color:var(--text)">update_deck</code> &middot; <code style="color:var(--text)">append_slide</code> &middot; <code style="color:var(--text)">list_categories</code>
+      </div>
+      <a href="{% url 'slide_template_download' %}" class="btn btn-ghost btn-sm" download style="font-size:11px;white-space:nowrap">↓ Slide template</a>
     </div>
   </div>
 

@@ -178,6 +178,34 @@ def _dispatch_mcp(user, method, params):
             'protocolVersion': negotiated,
             'capabilities': {'tools': {}},
             'serverInfo': {'name': 'mDeck', 'version': '1.0.0'},
+            'instructions': (
+                "mDeck is a markdown slide deck tool. Each deck is a markdown document "
+                "where slides are separated by a line containing only --- (with blank lines around it).\n\n"
+                "SLIDE STRUCTURE:\n"
+                "## Slide Title\n"
+                "### Optional subtitle\n\n"
+                "Content here. Keep each slide focused on one idea.\n\n"
+                "---\n\n"
+                "## Next Slide\n\n"
+                "- Bullet point\n"
+                "- **Bold**, *italic*, `inline code`\n\n"
+                "MATH (KaTeX):\n"
+                "- Inline: $E = mc^2$\n"
+                "- Block: $$\\int_0^\\infty e^{-x}\\,dx = 1$$\n\n"
+                "CODE BLOCKS:\n"
+                "```python\n"
+                "def hello():\n"
+                "    print('Hello')\n"
+                "```\n\n"
+                "TOOLS:\n"
+                "- create_deck: new deck with title + full markdown content\n"
+                "- update_deck: replace a deck's content (use slug)\n"
+                "- append_slide: add one slide to end (markdown only, no ---)\n"
+                "- get_deck: read full content and metadata\n"
+                "- list_decks: see all decks\n\n"
+                "TIPS: Use ## for every slide title. 5-7 bullet points max per slide. "
+                "One concept per slide. Math-heavy slides work best with $$...$$ blocks on their own line."
+            ),
         }
     elif method == 'tools/list':
         return {'tools': _mcp_tools_schema()}

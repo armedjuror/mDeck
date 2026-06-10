@@ -3,7 +3,7 @@ import json
 from django.contrib.auth.decorators import login_required
 from django.db.models import F, Q
 from django.core.paginator import Paginator
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -333,3 +333,82 @@ def oauth_app_delete(request, app_id):
     app = get_object_or_404(OAuthApp, id=app_id, user=request.user)
     app.delete()
     return JsonResponse({'ok': True})
+
+
+_SLIDE_TEMPLATE = """\
+## Slide Title
+### Optional subtitle
+
+Opening line or key idea for this slide.
+
+---
+
+## Bullet Points
+
+- First point
+- **Bold text** and *italic text*
+- `inline code` for short snippets
+- Nested list:
+  - Sub-item one
+  - Sub-item two
+
+---
+
+## Math Slide
+
+Inline math: $E = mc^2$
+
+Block math (centered, displayed):
+
+$$
+\\int_0^\\infty e^{-x}\\,dx = 1
+$$
+
+The quadratic formula: $x = \\dfrac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$
+
+---
+
+## Code Slide
+
+```python
+def fibonacci(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+
+print(fibonacci(10))  # 55
+```
+
+---
+
+## Image / Quote Slide
+
+> "A quote or callout stands out well on a clean slide."
+> — Author Name
+
+---
+
+## Two-Column Style (use a table)
+
+| Left column | Right column |
+|---|---|
+| Point A | Point B |
+| Point C | Point D |
+
+---
+
+## Tips for Great Slides
+
+- One idea per slide
+- Short sentences — slides are not essays
+- Use `---` (with blank lines above and below) to separate slides
+- Math: `$inline$` or `$$block$$`  (KaTeX syntax)
+- Code: fenced blocks with a language tag for syntax highlighting
+"""
+
+
+def slide_template_download(request):
+    response = HttpResponse(_SLIDE_TEMPLATE, content_type='text/plain; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="slide-template.md"'
+    return response

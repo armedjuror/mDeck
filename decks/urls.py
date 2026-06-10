@@ -33,6 +33,7 @@ urlpatterns = [
     # ── Profile ───────────────────────────────────────────────────────────────
     path('profile/', views.profile, name='profile'),
     path('profile/update/', views.profile_update, name='profile_update'),
+    path('profile/slide-template/', views.slide_template_download, name='slide_template_download'),
     path('profile/api-keys/generate/', views.api_key_generate, name='api_key_generate'),
     path('profile/api-keys/<int:key_id>/revoke/', views.api_key_revoke, name='api_key_revoke'),
     path('profile/oauth-apps/create/', views.oauth_app_create, name='oauth_app_create'),
