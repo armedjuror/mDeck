@@ -1,0 +1,9 @@
+Hi {{ user.first_name|default:user.email }},
+
+Welcome to mDeck! Please verify your email address by clicking the link below:
+
+{{ activate_url }}
+
+This link expires in 3 days. If you didn't sign up for mDeck, you can safely ignore this email.
+
+— mDeck
