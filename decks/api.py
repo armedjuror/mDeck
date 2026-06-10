@@ -141,8 +141,20 @@ def mcp_endpoint(request):
         return _cors_preflight()
 
     if request.method == 'GET':
-        # Server does not offer SSE — per MCP spec return 405
-        return _cors(HttpResponse('', status=405))
+        # Check auth for GET — return 401 with OAuth discovery so clients can start the flow
+        if not _mcp_auth(request):
+            base = _base_url(request)
+            r = HttpResponse('', status=401, content_type='application/json')
+            r['WWW-Authenticate'] = (
+                f'Bearer realm="mDeck",'
+                f' resource_metadata="{base}/.well-known/oauth-protected-resource"'
+            )
+            return _cors(r)
+        # Authenticated GET — return empty SSE stream (no server-push messages)
+        r = HttpResponse(status=200, content_type='text/event-stream')
+        r['Cache-Control'] = 'no-cache'
+        r['X-Accel-Buffering'] = 'no'
+        return _cors(r)
 
     if request.method != 'POST':
         return _cors(JsonResponse({'error': 'Method not allowed'}, status=405))
