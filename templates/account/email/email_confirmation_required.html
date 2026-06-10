@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Verify your email{% endblock %}
+
+{% block content %}
+<div style="min-height:calc(100vh - 104px);display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:440px;text-align:center">
+
+    <div style="font-size:48px;margin-bottom:24px">&#9993;</div>
+    <h1 style="font-size:22px;font-weight:700;letter-spacing:-0.5px;margin-bottom:12px">Verify your email first</h1>
+    <p style="color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:32px">
+      Your email address hasn't been verified yet.<br>
+      Check your inbox for the verification link we sent you.
+    </p>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;text-align:left;font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:28px">
+      <div style="margin-bottom:6px">&#8226; Check your spam or junk folder</div>
+      <div>&#8226; <a href="{% url 'account_email' %}" style="color:var(--accent)">Resend verification email</a></div>
+    </div>
+
+    <a href="{% url 'account_login' %}" style="color:var(--accent);font-size:13px;text-decoration:none">
+      &larr; Back to sign in
+    </a>
+
+  </div>
+</div>
+{% endblock %}
