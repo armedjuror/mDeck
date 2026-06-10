@@ -43,6 +43,10 @@ urlpatterns = [
     path('oauth/authorize/', api.oauth_authorize, name='oauth_authorize'),
     path('oauth/token/', api.oauth_token, name='oauth_token'),
     path('oauth/register/', api.oauth_register, name='oauth_register'),
+    # Fallback paths per MCP spec (used when metadata discovery fails)
+    path('authorize', api.oauth_authorize, name='oauth_authorize_fallback'),
+    path('token', api.oauth_token, name='oauth_token_fallback'),
+    path('register', api.oauth_register, name='oauth_register_fallback'),
 
     # ── API ───────────────────────────────────────────────────────────────────
     path('api/deck/new/', api.deck_new, name='api_deck_new'),

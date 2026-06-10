@@ -145,9 +145,9 @@ def mcp_endpoint(request):
     method = body.get('method', '')
     params = body.get('params') or {}
 
-    # Notifications have no id — acknowledge silently
+    # Notifications have no id — acknowledge with 202 per MCP spec
     if rpc_id is None and method.startswith('notifications/'):
-        return HttpResponse('', status=204)
+        return HttpResponse('', status=202)
 
     try:
         result = _dispatch_mcp(user, method, params)
@@ -170,8 +170,12 @@ def mcp_endpoint(request):
 def _dispatch_mcp(user, method, params):
     # ── MCP protocol methods ──────────────────────────────────────────────────
     if method == 'initialize':
+        # Negotiate protocol version — prefer what the client requests if we support it
+        _supported = ['2025-03-26', '2024-11-05']
+        requested = params.get('protocolVersion', '2024-11-05')
+        negotiated = requested if requested in _supported else _supported[0]
         return {
-            'protocolVersion': '2024-11-05',
+            'protocolVersion': negotiated,
             'capabilities': {'tools': {}},
             'serverInfo': {'name': 'mDeck', 'version': '1.0.0'},
         }
