@@ -574,7 +574,6 @@ def oauth_register(request):
         'token_endpoint_auth_method': 'client_secret_post',
     }, status=201))
 
-@require_GET
 def _base_url(request):
     """Build the base URL with the correct scheme.
     Cloudflare terminates TLS and forwards over HTTP, so request.scheme is
