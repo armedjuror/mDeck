@@ -42,6 +42,8 @@ function renderSlideshow() {
     revealInst.initialize().then(function () {
       revealInst.layout();
       if (typeof window.onRevealReady === 'function') window.onRevealReady(revealInst);
+      // Second layout after fonts/theme styles settle
+      setTimeout(function () { revealInst.layout(); }, 250);
     });
   } else {
     revealInst.sync();
