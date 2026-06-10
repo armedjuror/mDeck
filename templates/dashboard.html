@@ -70,6 +70,10 @@
         </div>
         {% endfor %}
       </div>
+      <div class="empty-state hidden" id="deck-no-results">
+        <div class="empty-state-title">No results</div>
+        No decks match your search.
+      </div>
       {% else %}
       <div class="empty-state">
         <div class="empty-state-title">No decks yet</div>
@@ -106,11 +110,16 @@
   var searchInput = document.getElementById('deck-search');
   searchInput.addEventListener('input', function () {
     var q = this.value.toLowerCase();
+    var anyVisible = false;
     document.querySelectorAll('.deck-card').forEach(function (card) {
-      var title = card.dataset.title || '';
-      var tags  = card.dataset.tags  || '';
-      card.style.display = (!q || title.includes(q) || tags.includes(q)) ? '' : 'none';
+      var match = !q || (card.dataset.title || '').includes(q) || (card.dataset.tags || '').includes(q);
+      card.style.display = match ? '' : 'none';
+      if (match) anyVisible = true;
     });
+    var grid = document.getElementById('deck-grid');
+    var noResults = document.getElementById('deck-no-results');
+    if (grid) grid.style.display = anyVisible ? '' : 'none';
+    if (noResults) noResults.classList.toggle('hidden', anyVisible || !q);
   });
 
   // New deck modal

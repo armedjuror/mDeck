@@ -48,6 +48,23 @@
 {% endblock %}
 {% endif %}
 
+{% block extra_head %}
+<!-- KaTeX (no defer — required before marked-katex-extension) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<!-- Markdown + syntax highlighting -->
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked-katex-extension@5.0.0/lib/index.umd.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<!-- html2pdf.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!-- mDeck rendering helpers -->
+<link rel="stylesheet" href="{% static 'mdeck/css/editor.css' %}">
+<script src="{% static 'mdeck/js/markdown.js' %}"></script>
+<script src="{% static 'mdeck/js/pdf.js' %}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="page-content">
 
@@ -82,6 +99,7 @@
       {% if public_view and deck.allow_copy and request.user.is_authenticated %}
       <button class="btn btn-secondary" id="btn-copy">Copy to my decks</button>
       {% endif %}
+      <button class="btn btn-ghost" id="btn-download-pdf">&#8595; PDF</button>
     </div>
   </div>
 
@@ -145,13 +163,23 @@
   </article>
   {% endif %}
 
+  <!-- Hidden PDF render target -->
+  <div id="pdf-render" style="display:none;position:absolute;left:-9999px"></div>
+
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
+{{ deck.content|json_script:"deck-content" }}
 <script>
   var CSRF_TOKEN = "{{ csrf_token }}";
   var DECK_SLUG = "{{ deck.slug }}";
+  var currentMarkdown = JSON.parse(document.getElementById('deck-content').textContent);
+
+  document.getElementById('btn-download-pdf').addEventListener('click', function () {
+    document.getElementById('pdf-render').style.display = 'block';
+    downloadPdf();
+  });
 
   {% if not public_view %}
   // Submit for review

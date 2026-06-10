@@ -129,7 +129,7 @@ body.page-body {
 
 #main-area {
   display: flex;
-  height: calc(100vh - 52px);
+  height: calc(100vh - 62px);
   overflow: hidden;
 }
 
@@ -281,7 +281,7 @@ body.page-body {
   border-radius: 2px;
 }
 
-#split-divider:hover, #split-divider.dragging { background: rgba(74, 222, 128, 0.15); }
+#split-divider:hover, #split-divider.dragging { background: rgba(242, 193, 78, 0.15); }
 #split-divider:hover::after, #split-divider.dragging::after { background: var(--accent); }
 
 /* ── Preview pane ─────────────────────────────────────────────────────────── */
@@ -516,7 +516,7 @@ body.page-body {
 }
 
 .ss-btn:hover { color: var(--text); border-color: #555; background: rgba(30, 30, 30, 0.9); }
-.ss-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(74, 222, 128, 0.08); }
+.ss-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(242, 193, 78, 0.08); }
 
 /* ── Laser pointer ─────────────────────────────────────────────────────────── */
 

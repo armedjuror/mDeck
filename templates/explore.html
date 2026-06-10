@@ -30,32 +30,29 @@
   </div>
 
   {% if page.object_list %}
-  <div class="deck-grid">
+  <div class="gallery-grid">
     {% for deck in page.object_list %}
-    <div class="deck-card" onclick="location.href='{% url 'explore_deck' deck.slug %}'">
-      <div>
-        <div class="deck-card-title">{{ deck.title }}</div>
-        <div class="deck-card-meta">
-          <span style="color:var(--muted)">by {{ deck.owner.get_full_name|default:deck.owner.email }}</span>
-          {% if deck.category %}&middot; <span>{{ deck.category.name }}</span>{% endif %}
-        </div>
+    <div class="gallery-card" onclick="location.href='{% url 'explore_deck' deck.slug %}'">
+      <div class="gallery-card-title">{{ deck.title }}</div>
+      <div class="gallery-card-meta">
+        by {{ deck.owner.get_full_name|default:deck.owner.email }}
+        {% if deck.category %}&middot; {{ deck.category.name }}{% endif %}
       </div>
-
       {% if deck.tags_list %}
-      <div class="deck-card-meta" style="gap:4px">
+      <div class="gallery-card-tags">
         {% for tag in deck.tags_list %}
         <span style="color:var(--accent);font-size:11px">#{{ tag }}</span>
         {% endfor %}
       </div>
       {% endif %}
-      <div class="deck-card-meta">
+      <div class="gallery-card-meta">
         {{ deck.slide_count }} slide{% if deck.slide_count != 1 %}s{% endif %}
         &middot;
         {{ deck.view_count }} view{% if deck.view_count != 1 %}s{% endif %}
         &middot;
         {{ deck.updated_at|date:"M j, Y" }}
       </div>
-      <div class="deck-card-actions" onclick="event.stopPropagation()">
+      <div class="gallery-card-actions" onclick="event.stopPropagation()">
         <a href="{% url 'explore_present' deck.slug %}" class="btn btn-primary btn-sm">Present</a>
         <a href="{% url 'explore_deck' deck.slug %}" class="btn btn-ghost btn-sm">Details</a>
         {% if deck.allow_copy and request.user.is_authenticated %}

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ deck.title }} — mDeck</title>
   {% load static %}
-
+  <link rel="icon" type="image/svg+xml" href="{% static 'mdeck/favicon.svg' %}">
   <!-- Theme + font injection (applied after all CSS via end-of-body style) -->
   <style id="deck-theme-style">
     body { margin: 0; overflow: hidden; background: {{ theme.bg }}; }
@@ -106,7 +106,8 @@
   };
 
   setupMarked();
-  renderSlideshow();
+  // Defer until after first paint so position:fixed container dimensions are resolved
+  requestAnimationFrame(function () { renderSlideshow(); });
 </script>
 </body>
 </html>

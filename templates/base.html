@@ -14,9 +14,7 @@
 
 <nav class="site-nav">
   <div class="nav-inner">
-    <a href="/" class="nav-logo">m<span class="logo-d">D</span>eck</a>
-    <span class="nav-tagline">markdown to slides, AI ready</span>
-    <div class="nav-spacer"></div>
+    <a href="/" class="nav-logo">m<span class="logo-deck">Deck</span></a>
 
     <button class="nav-hamburger" id="nav-toggle" aria-label="Toggle menu">
       <span></span><span></span><span></span>
@@ -37,8 +35,8 @@
       </li>
       {% else %}
       <li><a href="{% url 'explore' %}">Explore</a></li>
-      <li><a href="{% url 'account_signup' %}" class="nav-btn accent">Sign up</a></li>
-      <li><a href="{% url 'account_login' %}" class="nav-btn">Sign in</a></li>
+      <li><a href="{% url 'account_signup' %}" class="nav-cta">Sign up</a></li>
+      <li><a href="{% url 'account_login' %}">Sign in</a></li>
       {% endif %}
     </ul>
   </div>
@@ -48,7 +46,23 @@
 
 <footer class="site-footer">
   <div class="container">
-    <span class="footer-text">mDeck &mdash; markdown to slides, AI ready</span>
+    <div class="footer-inner">
+      <div>
+        <a href="/" class="footer-brand">m<span class="logo-deck">Deck</span></a>
+        <div class="footer-tagline">Clean slides for technical content.</div>
+      </div>
+      <div class="footer-links">
+        <a href="{% url 'explore' %}">Explore</a>
+        <a href="https://github.com/armedjuror/mDeck" target="_blank" rel="noopener">GitHub</a>
+        <a href="/sitemap.xml">Sitemap</a>
+      </div>
+      <a href="https://buymeacoffee.com/armedjuror" class="footer-coffee" target="_blank" rel="noopener">&#9749; Buy me a coffee</a>
+    </div>
+    <div class="footer-meta">
+      <span>&copy; <span id="footer-yr"></span> mDeck</span>
+      <span>MIT License</span>
+      <span>Built for people who write in markdown.</span>
+    </div>
   </div>
 </footer>
 
@@ -57,10 +71,10 @@
 {% load static %}
 <script src="{% static 'mdeck/js/app.js' %}"></script>
 <script>
-  // Hamburger toggle
   document.getElementById('nav-toggle').addEventListener('click', function () {
     document.getElementById('nav-links').classList.toggle('open');
   });
+  document.getElementById('footer-yr').textContent = new Date().getFullYear();
 </script>
 {% block extra_scripts %}{% endblock %}
 </body>
