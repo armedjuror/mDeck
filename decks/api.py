@@ -92,18 +92,29 @@ def deck_autosave(request, slug):
 
 _CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type, Accept, MCP-Protocol-Version, X-Requested-With',
-    'Access-Control-Expose-Headers': 'WWW-Authenticate, MCP-Protocol-Version',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': (
+        'Authorization, Content-Type, Accept, '
+        'MCP-Protocol-Version, Mcp-Session-Id, Last-Event-ID, X-Requested-With'
+    ),
+    'Access-Control-Expose-Headers': 'WWW-Authenticate, MCP-Protocol-Version, Mcp-Session-Id',
     'Access-Control-Max-Age': '86400',
 }
 
-def _cors(response):
+# Origins allowed to call the MCP endpoint cross-origin
+_ALLOWED_ORIGINS = {
+    'https://claude.ai',
+    'https://www.claude.ai',
+    'https://mdeck.dev',
+    'https://www.mdeck.dev',
+}
+
+def _cors(response, request=None):
     for k, v in _CORS_HEADERS.items():
         response[k] = v
     return response
 
-def _cors_preflight():
+def _cors_preflight(request=None):
     r = HttpResponse('', status=204)
     for k, v in _CORS_HEADERS.items():
         r[k] = v
@@ -140,6 +151,11 @@ def mcp_endpoint(request):
     if request.method == 'OPTIONS':
         return _cors_preflight()
 
+    # DNS-rebinding protection: reject cross-origin requests from unknown origins
+    origin = request.headers.get('Origin', '')
+    if origin and origin not in _ALLOWED_ORIGINS:
+        return _cors(JsonResponse({'error': 'Forbidden origin'}, status=403))
+
     if request.method == 'GET':
         # Check auth for GET — return 401 with OAuth discovery so clients can start the flow
         if not _mcp_auth(request):
@@ -159,20 +175,7 @@ def mcp_endpoint(request):
     if request.method != 'POST':
         return _cors(JsonResponse({'error': 'Method not allowed'}, status=405))
 
-    user = _mcp_auth(request)
-    if not user:
-        base = _base_url(request)
-        response = JsonResponse({
-            'jsonrpc': '2.0',
-            'id': None,
-            'error': {'code': -32001, 'message': 'Unauthorized'},
-        }, status=401)
-        response['WWW-Authenticate'] = (
-            f'Bearer realm="mDeck",'
-            f' resource_metadata="{base}/.well-known/oauth-protected-resource"'
-        )
-        return _cors(response)
-
+    # Parse body first so we can echo back the correct id in error responses
     try:
         body = json.loads(request.body)
     except json.JSONDecodeError:
@@ -183,6 +186,21 @@ def mcp_endpoint(request):
         }, status=400))
 
     rpc_id = body.get('id')
+
+    user = _mcp_auth(request)
+    if not user:
+        base = _base_url(request)
+        response = JsonResponse({
+            'jsonrpc': '2.0',
+            'id': rpc_id,
+            'error': {'code': -32001, 'message': 'Unauthorized'},
+        }, status=401)
+        response['WWW-Authenticate'] = (
+            f'Bearer realm="mDeck",'
+            f' resource_metadata="{base}/.well-known/oauth-protected-resource"'
+        )
+        return _cors(response)
+
     method = body.get('method', '')
     params = body.get('params') or {}
 
@@ -217,7 +235,7 @@ def _dispatch_mcp(user, method, params):
         negotiated = requested if requested in _supported else _supported[0]
         return {
             'protocolVersion': negotiated,
-            'capabilities': {'tools': {}},
+            'capabilities': {'tools': {}, 'prompts': {}},
             'serverInfo': {'name': 'mDeck', 'version': '1.0.0'},
             'instructions': (
                 "mDeck is a markdown slide deck tool. Each deck is a markdown document "
@@ -252,6 +270,10 @@ def _dispatch_mcp(user, method, params):
         return {'tools': _mcp_tools_schema()}
     elif method == 'tools/call':
         return _mcp_call_tool(user, params.get('name', ''), params.get('arguments') or {})
+    elif method == 'prompts/list':
+        return {'prompts': _mcp_prompts_schema()}
+    elif method == 'prompts/get':
+        return _mcp_get_prompt(params.get('name', ''), params.get('arguments') or {})
     # ── Legacy direct methods (API key clients) ───────────────────────────────
     elif method == 'list_decks':
         return _mcp_list_decks(user)
@@ -275,6 +297,7 @@ def _mcp_tools_schema():
             'name': 'list_decks',
             'description': 'List all your decks',
             'inputSchema': {'type': 'object', 'properties': {}},
+            'annotations': {'readOnlyHint': True, 'destructiveHint': False},
         },
         {
             'name': 'get_deck',
@@ -284,6 +307,7 @@ def _mcp_tools_schema():
                 'properties': {'slug': {'type': 'string', 'description': 'Deck slug'}},
                 'required': ['slug'],
             },
+            'annotations': {'readOnlyHint': True, 'destructiveHint': False},
         },
         {
             'name': 'create_deck',
@@ -299,6 +323,7 @@ def _mcp_tools_schema():
                 },
                 'required': ['title'],
             },
+            'annotations': {'readOnlyHint': False, 'destructiveHint': False},
         },
         {
             'name': 'update_deck',
@@ -314,6 +339,7 @@ def _mcp_tools_schema():
                 },
                 'required': ['slug'],
             },
+            'annotations': {'readOnlyHint': False, 'destructiveHint': True},
         },
         {
             'name': 'append_slide',
@@ -326,13 +352,132 @@ def _mcp_tools_schema():
                 },
                 'required': ['slug', 'slide_content'],
             },
+            'annotations': {'readOnlyHint': False, 'destructiveHint': False},
         },
         {
             'name': 'list_categories',
             'description': 'List all your categories as a nested tree',
             'inputSchema': {'type': 'object', 'properties': {}},
+            'annotations': {'readOnlyHint': True, 'destructiveHint': False},
         },
     ]
+
+
+_SLIDE_PROMPT_TEMPLATE = """\
+You are a slide deck creator. Convert the attached resource (PDF, document, or pasted text) into a structured markdown slide deck. Follow every rule below exactly.
+
+── SLIDE FORMAT ────────────────────────────────────────────────
+Slides are separated by a blank line, three dashes, then a blank line:
+
+## Slide Title
+Content here.
+
+---
+
+## Next Slide
+Content here.
+
+Every slide MUST start with ## Title (h2). Use ### Subtitle for a subtitle on the same slide. Never use --- anywhere inside a slide — it is the slide separator.
+
+── CONTENT RULES ───────────────────────────────────────────────
+• STRICTLY based on the resource. Do not add, infer, or hallucinate anything not present in the source.
+• One concept per slide. Never mix unrelated ideas.
+• Max content per slide: 6–8 bullets OR 1 code block OR 1 equation block OR 1 table. Do not combine multiple heavy elements on one slide.
+• Bullet text: max ~10 words per point. Use sub-bullets sparingly (max 2 levels).
+• Prose: max 2–3 short sentences per slide. Prefer bullets over paragraphs.
+• Total words per slide: aim for under 80 words of visible content.
+
+── FORMATTING ELEMENTS ─────────────────────────────────────────
+
+Bullets & emphasis:
+- Plain bullet point
+- **Bold** for key terms    *Italic* for emphasis    `code` for names/commands
+
+Code blocks — always include the language tag:
+```python
+def example():
+    return "specify the language"
+```
+
+Block quotations — for direct quotes from the source:
+> "Exact quote from the resource."
+> — Author / Source, p. X
+
+LaTeX math — inline (within a sentence):
+The formula $E = mc^2$ shows mass-energy equivalence.
+
+LaTeX math — block (standalone, centered on its own line):
+$$
+\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}
+$$
+
+LaTeX rules — CRITICAL, follow exactly:
+• Always use _ for subscripts: $A_{31}$ not $A{31}$
+• Always use ^ for superscripts: $x^{2}$ not $x{2}$
+• Never place ; directly after a closing $. Use a comma or add a space.
+• Never chain many $...$ expressions on one line separated by semicolons. Use commas or split across lines.
+• Prefer $$ blocks for standalone equations rather than inline $ when the expression is complex.
+• When listing multiple math values on one line, use a single $$ block with \\quad separators: $$M_{31}=-12,\\ A_{31}=-12 \\quad M_{32}=-22,\\ A_{32}=22$$
+
+Tables — for comparisons or structured data from the resource:
+| Column A | Column B | Column C |
+|---|---|---|
+| value | value | value |
+
+── SLIDE STRUCTURE ─────────────────────────────────────────────
+1. Title slide   — ## [Deck Title]  then  ### Source: [document name]
+2. Overview      — 2nd slide: brief outline (4–6 bullets)
+3. Content slides — one concept each, strictly from the source
+4. Key terms     — define important terms extracted from the resource
+5. Summary       — last slide: 3–5 key takeaways, nothing invented
+
+── DO NOT ──────────────────────────────────────────────────────
+✗ Invent examples, analogies, or content not in the source
+✗ Add opinions, commentary, or external knowledge
+✗ Put more than 1 code block or 1 equation block on a single slide
+✗ Use --- anywhere except as the slide separator
+✗ Wrap the output in a code fence or add any explanation text
+✗ Write $A{31}$ — always use _ for subscripts: $A_{31}$
+✗ Put ; immediately after a closing $ — use , or a line break instead
+✗ Chain multiple $...$ expressions with semicolons on one line — use a single $$...$$ block with \\quad separators
+
+── OUTPUT ──────────────────────────────────────────────────────
+Output ONLY the raw markdown. Start directly with the first slide. No preamble, no closing remarks.
+
+── RESOURCE ────────────────────────────────────────────────────
+{resource}"""
+
+
+def _mcp_prompts_schema():
+    return [
+        {
+            'name': 'resource_to_slides',
+            'description': 'Convert any resource (PDF, document, or text) into a structured mDeck slide deck in the correct markdown format.',
+            'arguments': [
+                {
+                    'name': 'resource',
+                    'description': 'The resource content to convert — paste the text, or describe the topic if attaching a file.',
+                    'required': True,
+                },
+            ],
+        }
+    ]
+
+
+def _mcp_get_prompt(name, arguments):
+    if name != 'resource_to_slides':
+        raise ValueError(f'Unknown prompt: {name}')
+    resource = arguments.get('resource', '')
+    text = _SLIDE_PROMPT_TEMPLATE.format(resource=resource)
+    return {
+        'description': 'Convert a resource into an mDeck slide deck.',
+        'messages': [
+            {
+                'role': 'user',
+                'content': {'type': 'text', 'text': text},
+            }
+        ],
+    }
 
 
 def _mcp_call_tool(user, name, args):

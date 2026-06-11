@@ -1,12 +1,15 @@
 User-agent: *
 Allow: /
 Allow: /explore/
+Allow: /api/mcp/
+Allow: /api/mcp
+Allow: /oauth/
+Allow: /.well-known/
 Disallow: /dashboard/
 Disallow: /deck/
 Disallow: /categories/
 Disallow: /profile/
 Disallow: /api/
-Disallow: /oauth/
 Disallow: /admin/
 Disallow: /auth/
 
