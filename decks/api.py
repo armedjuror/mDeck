@@ -850,4 +850,4 @@ def oauth_token(request):
     if auth_code.resource:
         token_response['resource'] = auth_code.resource
 
-    return _cors(JsonResponse(token_response))
+    return JsonResponse(token_response)
