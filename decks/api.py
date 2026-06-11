@@ -88,39 +88,6 @@ def deck_autosave(request, slug):
     return JsonResponse({'ok': True})
 
 
-# ── CORS helper (MCP & OAuth endpoints are called cross-origin by Claude) ─────
-
-_CORS_HEADERS = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': (
-        'Authorization, Content-Type, Accept, '
-        'MCP-Protocol-Version, Mcp-Session-Id, Last-Event-ID, X-Requested-With'
-    ),
-    'Access-Control-Expose-Headers': 'WWW-Authenticate, MCP-Protocol-Version, Mcp-Session-Id',
-    'Access-Control-Max-Age': '86400',
-}
-
-# Origins allowed to call the MCP endpoint cross-origin
-_ALLOWED_ORIGINS = {
-    'https://claude.ai',
-    'https://www.claude.ai',
-    'https://mdeck.dev',
-    'https://www.mdeck.dev',
-}
-
-def _cors(response, request=None):
-    for k, v in _CORS_HEADERS.items():
-        response[k] = v
-    return response
-
-def _cors_preflight(request=None):
-    r = HttpResponse('', status=204)
-    for k, v in _CORS_HEADERS.items():
-        r[k] = v
-    return r
-
-
 # ── MCP endpoint (Bearer token auth, no CSRF) ─────────────────────────────────
 
 def _mcp_auth(request):
@@ -148,82 +115,56 @@ def _mcp_auth(request):
 
 @csrf_exempt
 def mcp_endpoint(request):
-    if request.method == 'OPTIONS':
-        return _cors_preflight()
-
-    # DNS-rebinding protection: reject cross-origin requests from unknown origins
-    origin = request.headers.get('Origin', '')
-    if origin and origin not in _ALLOWED_ORIGINS:
-        return _cors(JsonResponse({'error': 'Forbidden origin'}, status=403))
-
     if request.method == 'GET':
-        # Check auth for GET — return 401 with OAuth discovery so clients can start the flow
-        if not _mcp_auth(request):
-            base = _base_url(request)
-            r = HttpResponse('', status=401, content_type='application/json')
-            r['WWW-Authenticate'] = (
-                f'Bearer realm="mDeck",'
-                f' resource_metadata="{base}/.well-known/oauth-protected-resource"'
-            )
-            return _cors(r)
-        # Authenticated GET — return empty SSE stream (no server-push messages)
-        r = HttpResponse(status=200, content_type='text/event-stream')
-        r['Cache-Control'] = 'no-cache'
-        r['X-Accel-Buffering'] = 'no'
-        return _cors(r)
+        # Server does not offer SSE — per MCP spec return 405
+        return HttpResponse('', status=405)
 
     if request.method != 'POST':
-        return _cors(JsonResponse({'error': 'Method not allowed'}, status=405))
-
-    # Parse body first so we can echo back the correct id in error responses
-    try:
-        body = json.loads(request.body)
-    except json.JSONDecodeError:
-        return _cors(JsonResponse({
-            'jsonrpc': '2.0',
-            'id': None,
-            'error': {'code': -32700, 'message': 'Parse error'},
-        }, status=400))
-
-    rpc_id = body.get('id')
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     user = _mcp_auth(request)
     if not user:
-        base = _base_url(request)
         response = JsonResponse({
             'jsonrpc': '2.0',
-            'id': rpc_id,
+            'id': None,
             'error': {'code': -32001, 'message': 'Unauthorized'},
         }, status=401)
-        response['WWW-Authenticate'] = (
-            f'Bearer realm="mDeck",'
-            f' resource_metadata="{base}/.well-known/oauth-protected-resource"'
-        )
-        return _cors(response)
+        response['WWW-Authenticate'] = 'Bearer realm="mDeck"'
+        return response
 
+    try:
+        body = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'jsonrpc': '2.0',
+            'id': None,
+            'error': {'code': -32700, 'message': 'Parse error'},
+        }, status=400)
+
+    rpc_id = body.get('id')
     method = body.get('method', '')
     params = body.get('params') or {}
 
     # Notifications have no id — acknowledge with 202 per MCP spec
     if rpc_id is None and method.startswith('notifications/'):
-        return _cors(HttpResponse('', status=202))
+        return HttpResponse('', status=202)
 
     try:
         result = _dispatch_mcp(user, method, params)
     except ValueError as e:
-        return _cors(JsonResponse({
+        return JsonResponse({
             'jsonrpc': '2.0',
             'id': rpc_id,
             'error': {'code': -32601, 'message': str(e)},
-        }, status=200))
+        }, status=200)
     except Exception:
-        return _cors(JsonResponse({
+        return JsonResponse({
             'jsonrpc': '2.0',
             'id': rpc_id,
             'error': {'code': -32603, 'message': 'Internal error'},
-        }, status=200))
+        }, status=200)
 
-    return _cors(JsonResponse({'jsonrpc': '2.0', 'id': rpc_id, 'result': result}))
+    return JsonResponse({'jsonrpc': '2.0', 'id': rpc_id, 'result': result})
 
 
 def _dispatch_mcp(user, method, params):
@@ -624,7 +565,6 @@ def mcp_manifest(request):
         'name': 'mDeck',
         'description': 'Create and manage markdown slide decks. markdown to slides, AI ready.',
         'contact_email': '',
-        'logo_url': f'{host}/static/mdeck/favicon.svg',
         'auth': {
             'type': 'api_key',
             'instructions': 'Generate an API key from your mDeck profile page (/profile/). Pass it as: Authorization: Bearer <key>',
@@ -692,10 +632,8 @@ def mcp_manifest(request):
 def oauth_register(request):
     """OAuth 2.0 Dynamic Client Registration (RFC 7591).
     Claude and other MCP clients call this to self-register before the auth flow."""
-    if request.method == 'OPTIONS':
-        return _cors_preflight()
     if request.method != 'POST':
-        return _cors(JsonResponse({'error': 'method_not_allowed'}, status=405))
+        return JsonResponse({'error': 'method_not_allowed'}, status=405)
 
     try:
         body = json.loads(request.body)
@@ -723,7 +661,7 @@ def oauth_register(request):
     app.redirect_uris = '\n'.join(str(u) for u in redirect_uris_raw)
     app.save(update_fields=['redirect_uris'])
 
-    return _cors(JsonResponse({
+    return JsonResponse({
         'client_id': app.client_id,
         'client_secret': raw_secret,
         'client_name': client_name,
@@ -731,8 +669,9 @@ def oauth_register(request):
         'grant_types': ['authorization_code'],
         'response_types': ['code'],
         'token_endpoint_auth_method': 'client_secret_post',
-    }, status=201))
+    }, status=201)
 
+@require_GET
 def _base_url(request):
     """Build the base URL with the correct scheme.
     Cloudflare terminates TLS and forwards over HTTP, so request.scheme is
@@ -747,22 +686,18 @@ def _base_url(request):
 
 def oauth_protected_resource(request):
     """RFC 9728 — lets MCP clients discover the authorization server for this resource."""
-    if request.method == 'OPTIONS':
-        return _cors_preflight()
     base = _base_url(request)
-    return _cors(JsonResponse({
+    return JsonResponse({
         'resource': f'{base}/api/mcp/',
         'authorization_servers': [base],
         'bearer_methods_supported': ['header'],
         'resource_documentation': f'{base}/profile/',
-    }))
+    })
 
 
 def oauth_metadata(request):
-    if request.method == 'OPTIONS':
-        return _cors_preflight()
     host = _base_url(request)
-    return _cors(JsonResponse({
+    return JsonResponse({
         'issuer': host,
         'authorization_endpoint': f'{host}/oauth/authorize/',
         'token_endpoint': f'{host}/oauth/token/',
@@ -772,7 +707,7 @@ def oauth_metadata(request):
         'token_endpoint_auth_methods_supported': ['client_secret_post', 'none'],
         'scopes_supported': ['mcp'],
         'code_challenge_methods_supported': ['S256'],
-    }))
+    })
 
 
 def oauth_authorize(request):
@@ -845,10 +780,8 @@ def _verify_pkce(code_verifier, code_challenge, method):
 
 @csrf_exempt
 def oauth_token(request):
-    if request.method == 'OPTIONS':
-        return _cors_preflight()
     if request.method != 'POST':
-        return _cors(JsonResponse({'error': 'method_not_allowed'}, status=405))
+        return JsonResponse({'error': 'method_not_allowed'}, status=405)
 
     content_type = request.content_type or ''
     if 'application/json' in content_type:
@@ -905,9 +838,9 @@ def oauth_token(request):
         token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
     )
 
-    return _cors(JsonResponse({
+    return JsonResponse({
         'access_token': raw_token,
         'token_type': 'Bearer',
         'scope': 'mcp',
         'expires_in': 31536000,  # 1 year; no server-side expiry enforced yet
-    }))
+    })
