@@ -6,8 +6,7 @@ from . import api, views
 urlpatterns = [
     # ── Public / auth ──────────────────────────────────────────────────────────
     path('', views.index, name='index'),
-    path('favicon.ico', RedirectView.as_view(url='/static/mdeck/favicon.svg', permanent=True)),
-
+    path('favicon.ico', RedirectView.as_view(url='/static/mdeck/favicon.ico', permanent=True)),
     # ── Dashboard ──────────────────────────────────────────────────────────────
     path('dashboard/', views.dashboard, name='dashboard'),
 
