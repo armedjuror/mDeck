@@ -11,12 +11,70 @@ from .models import APIKey, Category, Deck, DeckVersion, OAuthApp, Theme, genera
 
 _FALLBACK_THEME = {'bg': '#0f0f0f', 'text': '#e0e0e0', 'accent': '#4ade80', 'code_bg': '#1a1a1a'}
 
+# Curated font family → Google Fonts URL segment mapping.
+# Only fonts in this dict may be loaded — arbitrary fonts are never fetched.
+_GF_FAMILIES = {
+    'Inter':             'Inter:wght@400;500;600',
+    'JetBrains Mono':    'JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400',
+    'Merriweather':      'Merriweather:wght@400;700',
+    'Lora':              'Lora:wght@400;600',
+    'DM Sans':           'DM+Sans:wght@400;500;600',
+    'Fraunces':          'Fraunces:wght@400;600',
+    'Outfit':            'Outfit:wght@400;500;600',
+    'Playfair Display':  'Playfair+Display:wght@400;600;700',
+    'Space Grotesk':     'Space+Grotesk:wght@400;500;600',
+    'Nunito':            'Nunito:wght@400;500;600',
+}
+
+_FONT_CSS = {
+    'Inter':            "'Inter', sans-serif",
+    'JetBrains Mono':   "'JetBrains Mono', monospace",
+    'Merriweather':     "'Merriweather', serif",
+    'Lora':             "'Lora', serif",
+    'DM Sans':          "'DM Sans', sans-serif",
+    'Fraunces':         "'Fraunces', serif",
+    'Outfit':           "'Outfit', sans-serif",
+    'Playfair Display': "'Playfair Display', serif",
+    'Space Grotesk':    "'Space Grotesk', sans-serif",
+    'Nunito':           "'Nunito', sans-serif",
+}
+
 
 def _resolve_theme(deck):
     """Return the deck's Theme instance, falling back to dark."""
     if deck.theme:
         return deck.theme
     return Theme.objects.filter(slug='dark').first()
+
+
+def _deck_font_url(deck, theme):
+    """Return a Google Fonts URL loading only the fonts this deck needs."""
+    needed = {theme.font_heading, theme.font_body, theme.font_mono, deck.font}
+    families = sorted(_GF_FAMILIES[f] for f in needed if f in _GF_FAMILIES)
+    if not families:
+        return ''
+    return 'https://fonts.googleapis.com/css2?' + '&'.join(f'family={f}' for f in families) + '&display=swap'
+
+
+def _theme_config(deck, theme):
+    """Return a dict of all theme/deck rendering config for JS injection."""
+    return {
+        'bg':           theme.bg,
+        'text':         theme.text,
+        'accent':       theme.accent,
+        'codeBg':       theme.code_bg,
+        'bgGradient':   theme.bg_gradient or '',
+        'headingColor': theme.heading_color or '',
+        'accent2':      theme.accent_2 or '',
+        'ruleColor':    theme.rule_color or '',
+        'fontHeadingCss': _FONT_CSS.get(theme.font_heading, "'Inter', sans-serif"),
+        'fontBodyCss':    _FONT_CSS.get(theme.font_body,    "'Inter', sans-serif"),
+        'fontMonoCss':    _FONT_CSS.get(theme.font_mono,    "'JetBrains Mono', monospace"),
+        'fontCss':        deck.font_css_value(),
+        'fontSize':       deck.font_size_px(),
+        'fontScale':      deck.font_size,
+        'surface':        deck.surface,
+    }
 
 
 # ── Index ─────────────────────────────────────────────────────────────────────
@@ -69,11 +127,14 @@ def deck_edit(request, slug):
     deck = get_object_or_404(Deck, slug=slug, owner=request.user)
     categories = Category.objects.filter(user=request.user)
     themes = Theme.objects.all()
+    theme = _resolve_theme(deck)
     return render(request, 'deck_edit.html', {
         'deck': deck,
         'categories': categories,
         'themes': themes,
         'font_choices': Deck.FONT_CHOICES,
+        'deck_config_json': json.dumps(_theme_config(deck, theme)),
+        'theme_font_url': _deck_font_url(deck, theme),
     })
 
 
@@ -82,10 +143,13 @@ def deck_edit(request, slug):
 @login_required
 def deck_present(request, slug):
     deck = get_object_or_404(Deck, slug=slug, owner=request.user)
+    theme = _resolve_theme(deck)
     return render(request, 'deck_present.html', {
         'deck': deck,
-        'theme': _resolve_theme(deck),
+        'theme': theme,
         'back_url': f'/deck/{slug}/',
+        'deck_config_json': json.dumps(_theme_config(deck, theme)),
+        'theme_font_url': _deck_font_url(deck, theme),
     })
 
 
@@ -264,10 +328,13 @@ def explore_deck(request, slug):
 
 def explore_present(request, slug):
     deck = get_object_or_404(Deck, slug=slug, status='published')
+    theme = _resolve_theme(deck)
     return render(request, 'deck_present.html', {
         'deck': deck,
-        'theme': _resolve_theme(deck),
+        'theme': theme,
         'back_url': f'/explore/{slug}/',
+        'deck_config_json': json.dumps(_theme_config(deck, theme)),
+        'theme_font_url': _deck_font_url(deck, theme),
     })
 
 

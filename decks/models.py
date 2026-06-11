@@ -67,6 +67,14 @@ class Theme(models.Model):
     text = models.CharField(max_length=20)
     accent = models.CharField(max_length=20)
     code_bg = models.CharField(max_length=20)
+    # ── Enriched visual identity ────────────────────────────────────────────────
+    font_heading  = models.CharField(max_length=120, default='Inter')
+    font_body     = models.CharField(max_length=120, default='Inter')
+    font_mono     = models.CharField(max_length=120, default='JetBrains Mono')
+    heading_color = models.CharField(max_length=9,  blank=True, null=True)
+    accent_2      = models.CharField(max_length=9,  blank=True, null=True)
+    rule_color    = models.CharField(max_length=9,  blank=True, null=True)
+    bg_gradient   = models.TextField(blank=True, null=True)
 
     class Meta:
         ordering = ['name']
@@ -99,7 +107,9 @@ class Deck(models.Model):
         'Fraunces':       "'Fraunces', serif",
         'Outfit':         "'Outfit', sans-serif",
     }
-    FONT_SIZE_CHOICES = [(s, f'{s}px') for s in (28, 32, 36, 40, 44, 48, 52)]
+    FONT_SIZE_CHOICES = [('s', 'Small'), ('m', 'Medium'), ('l', 'Large')]
+    FONT_SCALE_PX    = {'s': 36, 'm': 40, 'l': 46}
+    SURFACE_CHOICES  = [('blank', 'Blank'), ('dots', 'Dots'), ('rules', 'Rules')]
 
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='decks')
     title = models.CharField(max_length=255)
@@ -114,7 +124,8 @@ class Deck(models.Model):
         'Theme', null=True, blank=True, on_delete=models.SET_NULL, related_name='decks'
     )
     font = models.CharField(max_length=100, choices=FONT_CHOICES, default='JetBrains Mono')
-    font_size = models.PositiveSmallIntegerField(default=40)
+    font_size = models.CharField(max_length=1, choices=FONT_SIZE_CHOICES, default='m')
+    surface   = models.CharField(max_length=8, choices=SURFACE_CHOICES, default='blank')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     allow_copy = models.BooleanField(default=False)
     view_count = models.PositiveIntegerField(default=0)
@@ -129,6 +140,9 @@ class Deck(models.Model):
 
     def font_css_value(self):
         return self.FONT_CSS_MAP.get(self.font, "'JetBrains Mono', monospace")
+
+    def font_size_px(self):
+        return self.FONT_SCALE_PX.get(self.font_size, 40)
 
     def tags_list(self):
         return [t.strip() for t in self.tags.split(',') if t.strip()]

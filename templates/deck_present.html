@@ -11,6 +11,12 @@
     body { margin: 0; overflow: hidden; background: {{ theme.bg }}; }
   </style>
 
+  {% if theme_font_url %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ theme_font_url }}">
+  {% endif %}
+
   <!-- KaTeX (NO defer) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
@@ -69,38 +75,44 @@
 <script src="{% static 'mdeck/js/shortcuts.js' %}"></script>
 
 {{ deck.content|json_script:"deck-content" }}
+{{ deck_config_json|json_script:"deck-config" }}
 <script>
   var currentMarkdown = JSON.parse(document.getElementById('deck-content').textContent);
   var currentMode = 'slideshow';
-  var DECK_SLUG = "{{ deck.slug }}";
-
-  var DECK_CONFIG = {
-    bg:      "{{ theme.bg }}",
-    text:    "{{ theme.text }}",
-    accent:  "{{ theme.accent }}",
-    codeBg:  "{{ theme.code_bg }}",
-    fontCss: "{{ deck.font_css_value|escapejs }}",
-    fontSize: {{ deck.font_size }}
-  };
+  var DECK_SLUG   = "{{ deck.slug }}";
+  var DECK_CONFIG = JSON.parse(document.getElementById('deck-config').textContent);
+  // Alias used by slideshow.js _computeBg()
+  var DECK_THEME  = DECK_CONFIG;
 
   window.onRevealReady = function (reveal) {
-    var f = DECK_CONFIG.fontCss, sz = DECK_CONFIG.fontSize;
-    var bg = DECK_CONFIG.bg, text = DECK_CONFIG.text, accent = DECK_CONFIG.accent, codeBg = DECK_CONFIG.codeBg;
-    // Append to body so it comes after all <link> stylesheets in cascade order
+    var cfg     = DECK_CONFIG;
+    var bg      = cfg.bgGradient || cfg.bg;
+    var text    = cfg.text;
+    var accent  = cfg.accent;
+    var codeBg  = cfg.codeBg;
+    var hColor  = cfg.headingColor || accent;
+    var rColor  = cfg.ruleColor    || codeBg;
+    var bodyF   = cfg.fontCss;
+    var headF   = cfg.fontHeadingCss || bodyF;
+    var monoF   = cfg.fontMonoCss    || "'JetBrains Mono', monospace";
+    var sz      = cfg.fontSize;
+    var bgFull  = _computeBg(cfg);
+
     var style = document.getElementById('deck-reveal-style');
     if (!style) { style = document.createElement('style'); style.id = 'deck-reveal-style'; document.body.appendChild(style); }
     style.textContent = [
-      '.reveal-viewport { background:' + bg + ' !important; }',
-      '.reveal { background:' + bg + ' !important; color:' + text + ' !important;' +
-        ' font-family:' + f + ' !important; font-size:' + sz + 'px !important; }',
-      '.reveal *,.reveal .slides { font-family:' + f + ' !important; }',
-      '.reveal h1,.reveal h2,.reveal h3,.reveal h4 { color:' + accent + ' !important; }',
+      '.reveal-viewport { background:' + bgFull + ' !important; }',
+      '.reveal { background:transparent !important; color:' + text + ' !important;' +
+        ' font-family:' + bodyF + ' !important; font-size:' + sz + 'px !important; }',
+      '.reveal *,.reveal .slides { font-family:' + bodyF + ' !important; }',
+      '.reveal h1,.reveal h2,.reveal h3,.reveal h4 { color:' + hColor + ' !important; font-family:' + headF + ' !important; }',
       '.reveal p,.reveal li,.reveal td,.reveal th { color:' + text + ' !important; }',
       '.reveal strong { color:' + accent + ' !important; }',
       '.reveal .progress,.reveal .controls { color:' + accent + ' !important; }',
-      '.reveal blockquote { background:' + codeBg + ' !important; border-left:3px solid ' + accent + ' !important; color:' + text + ' !important; }',
-      '.reveal td,.reveal th { color:' + text + ' !important; border-color:' + codeBg + ' !important; }',
-      '.reveal th { background:' + codeBg + ' !important; color:' + accent + ' !important; }',
+      '.reveal blockquote { background:' + codeBg + ' !important; border-left:3px solid ' + rColor + ' !important; color:' + text + ' !important; }',
+      '.reveal td,.reveal th { color:' + text + ' !important; border-color:' + rColor + ' !important; }',
+      '.reveal th { background:' + codeBg + ' !important; color:' + hColor + ' !important; }',
+      '.reveal code,.reveal pre,.reveal .code-window { font-family:' + monoF + ' !important; }',
     ].join('\n');
     reveal.layout();
   };

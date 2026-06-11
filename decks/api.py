@@ -48,11 +48,10 @@ def deck_save(request, slug):
             deck.theme = t
     if 'font' in data and data['font'] in dict(Deck.FONT_CHOICES):
         deck.font = data['font']
-    if 'font_size' in data:
-        try:
-            deck.font_size = max(10, min(120, int(data['font_size'])))
-        except (ValueError, TypeError):
-            pass
+    if 'font_size' in data and data['font_size'] in ('s', 'm', 'l'):
+        deck.font_size = data['font_size']
+    if 'surface' in data and data['surface'] in ('blank', 'dots', 'rules'):
+        deck.surface = data['surface']
     if 'description' in data:
         deck.description = data['description']
     if 'tags' in data:
@@ -203,6 +202,16 @@ def _dispatch_mcp(user, method, params):
                 "- append_slide: add one slide to end (markdown only, no ---)\n"
                 "- get_deck: read full content and metadata\n"
                 "- list_decks: see all decks\n\n"
+                "PER-SLIDE CONFIG (frontmatter):\n"
+                "Optionally start a slide with key: value lines before the ## title:\n\n"
+                "---\n"
+                "bg: https://example.com/photo.jpg\n"
+                "reveal: incremental\n\n"
+                "## Slide Title\n"
+                "Content here.\n\n"
+                "Recognized keys: bg (background image URL), reveal: incremental (list items appear one by one).\n"
+                "The config block must be at the very top of the slide, ends at the first blank line.\n"
+                "Unknown first lines are treated as content — the block is never mis-detected.\n\n"
                 "TIPS: Use ## for every slide title. 5-7 bullet points max per slide. "
                 "One concept per slide. Math-heavy slides work best with $$...$$ blocks on their own line."
             ),
@@ -257,10 +266,12 @@ def _mcp_tools_schema():
                 'type': 'object',
                 'properties': {
                     'title': {'type': 'string'},
-                    'content': {'type': 'string', 'description': 'Markdown content, slides separated by \\n---\\n'},
+                    'content': {'type': 'string', 'description': 'Markdown content, slides separated by \\n---\\n. Optionally start a slide with frontmatter: key: value lines (bg: <url>, reveal: incremental) followed by a blank line before the ## heading.'},
                     'theme': {'type': 'string', 'enum': ['dark', 'chalk', 'sepia', 'ocean', 'paper', 'forest']},
                     'tags': {'type': 'string', 'description': 'Comma-separated tags'},
                     'category': {'type': 'string', 'description': 'Category name'},
+                    'surface': {'type': 'string', 'enum': ['blank', 'dots', 'rules'], 'description': 'Slide background texture overlay'},
+                    'font_size': {'type': 'string', 'enum': ['s', 'm', 'l'], 'description': 'Font size scale: s=small, m=medium, l=large'},
                 },
                 'required': ['title'],
             },

@@ -3,23 +3,59 @@ var revealInst  = null;
 var revealReady = false;
 var laserOn     = false;
 
+// ── Colour helpers ─────────────────────────────────────────────────────────────
+
+function _hexToRgba(hex, alpha) {
+  hex = (hex || '').replace('#', '');
+  if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  var r = parseInt(hex.slice(0,2),16) || 0;
+  var g = parseInt(hex.slice(2,4),16) || 0;
+  var b = parseInt(hex.slice(4,6),16) || 0;
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+}
+
+function _computeBg(cfg) {
+  var base = cfg.bgGradient || cfg.bg;
+  var tint = cfg.ruleColor || cfg.text || '#e0e0e0';
+  if (cfg.surface === 'dots') {
+    var dot = _hexToRgba(tint, 0.08);
+    return 'radial-gradient(circle,' + dot + ' 1px,transparent 1px) 0 0/24px 24px,' + base;
+  }
+  if (cfg.surface === 'rules') {
+    var rule = _hexToRgba(tint, 0.06);
+    return 'repeating-linear-gradient(to bottom,transparent,transparent 39px,' + rule + ' 39px,' + rule + ' 40px),' + base;
+  }
+  return base;
+}
+
 // ── Reveal.js init ────────────────────────────────────────────────────────────
 
 function renderSlideshow() {
   if (typeof setupMarked === 'function') setupMarked();
-  var slides = splitSlides(currentMarkdown);
+  var slides = splitSlidesWithConfig(currentMarkdown);
   var slidesEl = document.getElementById('reveal-slides');
   if (!slidesEl) return;
 
+  var cfg = (typeof DECK_CONFIG !== 'undefined') ? DECK_CONFIG : {};
+
   slidesEl.innerHTML = slides.map(function (s) {
-    return '<section>' + renderMd(s) + '</section>';
+    var html = renderMd(s.content);
+    // reveal: incremental — add fragment class to every top-level <li>
+    if (s.config.reveal === 'incremental') {
+      html = html.replace(/<li>/g, '<li class="fragment">');
+    }
+    var attrs = '';
+    if (s.config.bg) {
+      attrs += ' data-background-image="' + s.config.bg.replace(/"/g, '&quot;') + '"';
+      attrs += ' data-background-opacity="0.55"';
+    }
+    return '<section' + attrs + '>' + html + '</section>';
   }).join('');
 
   if (!revealReady) {
     revealReady = true;
     var container = document.querySelector('#mode-slideshow .reveal');
     if (!container) {
-      // deck_present.html: reveal is directly in body
       container = document.querySelector('.reveal-container .reveal');
     }
     if (!container) return;
@@ -42,7 +78,6 @@ function renderSlideshow() {
     revealInst.initialize().then(function () {
       revealInst.layout();
       if (typeof window.onRevealReady === 'function') window.onRevealReady(revealInst);
-      // Second layout after fonts/theme styles settle
       setTimeout(function () { revealInst.layout(); }, 250);
     });
   } else {

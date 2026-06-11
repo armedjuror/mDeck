@@ -41,6 +41,12 @@
     .unsaved-modal-btns .btn-discard { color: #f87171; border-color: #f87171; }
   </style>
 
+  {% if theme_font_url %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ theme_font_url }}">
+  {% endif %}
+
   <!-- KaTeX (NO defer) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
@@ -86,6 +92,10 @@
         {% for t in themes %}
         <option value="{{ t.slug }}"
           data-bg="{{ t.bg }}" data-text="{{ t.text }}" data-accent="{{ t.accent }}" data-code-bg="{{ t.code_bg }}"
+          data-bg-gradient="{{ t.bg_gradient|default:'' }}"
+          data-heading-color="{{ t.heading_color|default:'' }}"
+          data-accent2="{{ t.accent_2|default:'' }}"
+          data-rule-color="{{ t.rule_color|default:'' }}"
           {% if deck.theme and deck.theme.slug == t.slug %}selected{% endif %}>{{ t.name }}</option>
         {% endfor %}
       </select>
@@ -94,9 +104,15 @@
         <option value="{{ value }}" {% if deck.font == value %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
-      <div class="font-size-wrap">
-        <input type="range" id="font-size-select" min="20" max="72" step="2" value="{{ deck.font_size }}">
-        <span id="font-size-label">{{ deck.font_size }}px</span>
+      <div class="deck-toggle" id="font-scale-toggle" title="Font size">
+        <button class="deck-toggle-btn{% if deck.font_size == 's' %} active{% endif %}" data-scale="s">S</button>
+        <button class="deck-toggle-btn{% if deck.font_size == 'm' or not deck.font_size %} active{% endif %}" data-scale="m">M</button>
+        <button class="deck-toggle-btn{% if deck.font_size == 'l' %} active{% endif %}" data-scale="l">L</button>
+      </div>
+      <div class="deck-toggle" id="surface-toggle" title="Background texture">
+        <button class="deck-toggle-btn{% if deck.surface == 'blank' or not deck.surface %} active{% endif %}" data-surface="blank">&#9632;</button>
+        <button class="deck-toggle-btn{% if deck.surface == 'dots' %} active{% endif %}" data-surface="dots">&#8901;&#8901;</button>
+        <button class="deck-toggle-btn{% if deck.surface == 'rules' %} active{% endif %}" data-surface="rules">&#8801;</button>
       </div>
     </div>
     <div class="tab-bar">
@@ -223,19 +239,15 @@
 
 <!-- ── Django config ── -->
 {{ deck.content|json_script:"deck-content" }}
+{{ deck_config_json|json_script:"deck-config" }}
 <script>
   var DECK_SLUG    = "{{ deck.slug }}";
   var SAVE_URL     = "{% url 'api_deck_save' deck.slug %}";
   var AUTOSAVE_URL = "{% url 'api_deck_autosave' deck.slug %}";
   var CSRF_TOKEN   = "{{ csrf_token }}";
-  var DECK_THEME   = {
-    bg:      "{{ deck.theme.bg|default:'#0f0f0f' }}",
-    text:    "{{ deck.theme.text|default:'#e0e0e0' }}",
-    accent:  "{{ deck.theme.accent|default:'#4ade80' }}",
-    codeBg:  "{{ deck.theme.code_bg|default:'#1a1a1a' }}",
-    fontCss: "{{ deck.font_css_value|escapejs }}",
-    fontSize: {{ deck.font_size }}
-  };
+  var DECK_CONFIG  = JSON.parse(document.getElementById('deck-config').textContent);
+  // Backward-compat alias used by slideshow.js _computeBg()
+  var DECK_THEME   = DECK_CONFIG;
 </script>
 
 <!-- ── Editor IIFE (editor-specific only — shared rendering lives in the static JS files) ── -->
@@ -244,40 +256,51 @@
 
   // ── Theme injection ────────────────────────────────────────────────────────
 
-  function applyRevealTheme(bg, text, accent, fontCss, fontSize, codeBg) {
-    if (fontCss  === undefined) fontCss  = DECK_THEME.fontCss;
-    if (fontSize === undefined) fontSize = DECK_THEME.fontSize;
-    if (codeBg   === undefined) codeBg   = DECK_THEME.codeBg;
-    var f = fontCss;
+  function applyRevealTheme(cfg) {
+    if (!cfg) cfg = DECK_CONFIG;
+    var bg        = cfg.bgGradient || cfg.bg;
+    var text      = cfg.text;
+    var accent    = cfg.accent;
+    var codeBg    = cfg.codeBg;
+    var hColor    = cfg.headingColor || accent;
+    var rColor    = cfg.ruleColor    || codeBg;
+    var bodyF     = cfg.fontCss;           // deck-level body font override
+    var headF     = cfg.fontHeadingCss || bodyF;
+    var monoF     = cfg.fontMonoCss    || "'JetBrains Mono', monospace";
+    var fontSize  = cfg.fontSize;
+    var bgFull    = _computeBg(cfg);       // includes surface overlay
+
     var style = document.getElementById('theme-style');
     if (!style) { style = document.createElement('style'); style.id = 'theme-style'; }
-    document.body.appendChild(style); // always last — beats editor.css in cascade
+    document.body.appendChild(style);
     style.textContent = [
-      '.reveal-viewport { background:' + bg + ' !important; }',
-      '.reveal { background:' + bg + ' !important; color:' + text + ' !important;' +
-        ' font-family:' + f + ' !important; font-size:' + fontSize + 'px !important; }',
-      '.reveal *,.reveal .slides { font-family:' + f + ' !important; }',
-      '.reveal h1,.reveal h2,.reveal h3,.reveal h4 { color:' + accent + ' !important; }',
+      '.reveal-viewport { background:' + bgFull + ' !important; }',
+      '.reveal { background:transparent !important; color:' + text + ' !important;' +
+        ' font-family:' + bodyF + ' !important; font-size:' + fontSize + 'px !important; }',
+      '.reveal *,.reveal .slides { font-family:' + bodyF + ' !important; }',
+      '.reveal h1,.reveal h2,.reveal h3,.reveal h4 { color:' + hColor + ' !important; font-family:' + headF + ' !important; }',
       '.reveal p,.reveal li,.reveal td,.reveal th { color:' + text + ' !important; }',
       '.reveal strong { color:' + accent + ' !important; }',
       '.reveal .progress,.reveal .controls { color:' + accent + ' !important; }',
-      '.reveal blockquote { background:' + codeBg + ' !important; border-left:3px solid ' + accent + ' !important; color:' + text + ' !important; }',
-      '.reveal td,.reveal th { color:' + text + ' !important; border-color:' + codeBg + ' !important; }',
-      '.reveal th { background:' + codeBg + ' !important; color:' + accent + ' !important; }',
-      '.sp-slide { background:' + bg + '; color:' + text + '; font-family:' + f + ' !important; font-size:' + fontSize + 'px; }',
-      '.sp-slide * { font-family:' + f + ' !important; }',
-      '.sp-slide h1,.sp-slide h2,.sp-slide h3,.sp-slide h4 { color:' + accent + ' !important; }',
+      '.reveal blockquote { background:' + codeBg + ' !important; border-left:3px solid ' + rColor + ' !important; color:' + text + ' !important; }',
+      '.reveal td,.reveal th { color:' + text + ' !important; border-color:' + rColor + ' !important; }',
+      '.reveal th { background:' + codeBg + ' !important; color:' + hColor + ' !important; }',
+      '.reveal code,.reveal pre,.reveal .code-window { font-family:' + monoF + ' !important; }',
+      '.sp-slide { background:' + bgFull + '; color:' + text + '; font-family:' + bodyF + ' !important; font-size:' + fontSize + 'px; }',
+      '.sp-slide * { font-family:' + bodyF + ' !important; }',
+      '.sp-slide h1,.sp-slide h2,.sp-slide h3,.sp-slide h4 { color:' + hColor + ' !important; font-family:' + headF + ' !important; }',
       '.sp-slide p,.sp-slide li { color:' + text + ' !important; }',
-      '.sp-slide blockquote { background:' + codeBg + '; border-left:3px solid ' + accent + '; color:' + text + '; }',
-      '.sp-slide td,.sp-slide th { color:' + text + '; border-color:' + codeBg + '; }',
-      '.sp-slide th { background:' + codeBg + '; color:' + accent + '; }',
+      '.sp-slide blockquote { background:' + codeBg + '; border-left:3px solid ' + rColor + '; color:' + text + '; }',
+      '.sp-slide td,.sp-slide th { color:' + text + '; border-color:' + rColor + '; }',
+      '.sp-slide th { background:' + codeBg + '; color:' + hColor + '; }',
+      '.sp-slide code,.sp-slide pre,.sp-slide .code-window { font-family:' + monoF + ' !important; }',
     ].join('\n');
   }
 
   // Called by slideshow.js after Reveal initializes
   window.onRevealReady = function (reveal) {
     revealInst = reveal;
-    applyRevealTheme(DECK_THEME.bg, DECK_THEME.text, DECK_THEME.accent, DECK_THEME.fontCss, DECK_THEME.fontSize, DECK_THEME.codeBg);
+    applyRevealTheme(DECK_CONFIG);
     reveal.layout();
   };
 
@@ -302,7 +325,7 @@
   currentMode = 'edit';
 
   setupMarked();
-  applyRevealTheme(DECK_THEME.bg, DECK_THEME.text, DECK_THEME.accent, DECK_THEME.fontCss, DECK_THEME.fontSize, DECK_THEME.codeBg);
+  applyRevealTheme(DECK_CONFIG);
   applyMode('edit');
   ensureEditor();
   setTimeout(function () {
@@ -345,7 +368,8 @@
       category_id: document.getElementById('meta-category').value || null,
       theme:       document.getElementById('theme-select').value,
       font:        document.getElementById('font-select').value,
-      font_size:   parseInt(document.getElementById('font-size-select').value, 10),
+      font_size:   DECK_CONFIG.fontScale,
+      surface:     DECK_CONFIG.surface,
     };
     var btn = document.getElementById('btn-save-all');
     if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
@@ -704,24 +728,50 @@
 
   document.getElementById('theme-select').addEventListener('change', function () {
     var opt = this.options[this.selectedIndex];
-    DECK_THEME.bg = opt.dataset.bg; DECK_THEME.text = opt.dataset.text;
-    DECK_THEME.accent = opt.dataset.accent; DECK_THEME.codeBg = opt.dataset.codeBg || DECK_THEME.codeBg;
-    applyRevealTheme(DECK_THEME.bg, DECK_THEME.text, DECK_THEME.accent, DECK_THEME.fontCss, DECK_THEME.fontSize, DECK_THEME.codeBg);
+    DECK_CONFIG.bg          = opt.dataset.bg;
+    DECK_CONFIG.text        = opt.dataset.text;
+    DECK_CONFIG.accent      = opt.dataset.accent;
+    DECK_CONFIG.codeBg      = opt.dataset.codeBg || DECK_CONFIG.codeBg;
+    DECK_CONFIG.bgGradient  = opt.dataset.bgGradient  || '';
+    DECK_CONFIG.headingColor= opt.dataset.headingColor || '';
+    DECK_CONFIG.accent2     = opt.dataset.accent2      || '';
+    DECK_CONFIG.ruleColor   = opt.dataset.ruleColor    || '';
+    applyRevealTheme(DECK_CONFIG);
     syncRevealAfterStyleChange();
     isDirty = true;
   });
 
   document.getElementById('font-select').addEventListener('change', function () {
-    DECK_THEME.fontCss = FONT_CSS_MAP[this.value] || this.value;
-    applyRevealTheme(DECK_THEME.bg, DECK_THEME.text, DECK_THEME.accent, DECK_THEME.fontCss, DECK_THEME.fontSize, DECK_THEME.codeBg);
+    DECK_CONFIG.fontCss = FONT_CSS_MAP[this.value] || this.value;
+    applyRevealTheme(DECK_CONFIG);
     syncRevealAfterStyleChange();
     isDirty = true;
   });
 
-  document.getElementById('font-size-select').addEventListener('input', function () {
-    DECK_THEME.fontSize = parseInt(this.value, 10);
-    document.getElementById('font-size-label').textContent = this.value + 'px';
-    applyRevealTheme(DECK_THEME.bg, DECK_THEME.text, DECK_THEME.accent, DECK_THEME.fontCss, DECK_THEME.fontSize, DECK_THEME.codeBg);
+  document.getElementById('font-scale-toggle').addEventListener('click', function (e) {
+    var btn = e.target.closest('.deck-toggle-btn');
+    if (!btn) return;
+    var scale = btn.dataset.scale;
+    if (!scale) return;
+    DECK_CONFIG.fontScale = scale;
+    var SCALE_PX = { s: 36, m: 40, l: 46 };
+    DECK_CONFIG.fontSize = SCALE_PX[scale] || 40;
+    this.querySelectorAll('.deck-toggle-btn').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    applyRevealTheme(DECK_CONFIG);
+    syncRevealAfterStyleChange();
+    isDirty = true;
+  });
+
+  document.getElementById('surface-toggle').addEventListener('click', function (e) {
+    var btn = e.target.closest('.deck-toggle-btn');
+    if (!btn) return;
+    var surface = btn.dataset.surface;
+    if (!surface) return;
+    DECK_CONFIG.surface = surface;
+    this.querySelectorAll('.deck-toggle-btn').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    applyRevealTheme(DECK_CONFIG);
     syncRevealAfterStyleChange();
     isDirty = true;
   });

@@ -55,6 +55,53 @@ function renderMd(md) {
   return marked.parse(md);
 }
 
+// ── Per-slide frontmatter ─────────────────────────────────────────────────────
+// Whitelist of recognized config keys. Anything else means the block is content.
+var _FM_WHITELIST = { bg: true, reveal: true };
+
+/**
+ * Parse optional frontmatter at the top of a raw slide string.
+ * Returns { config: {bg?, reveal?}, content: string }.
+ * If the first line is not a whitelisted key: value, the entire text is content.
+ */
+function parseSlideFrontmatter(text) {
+  var lines = text.split('\n');
+  var firstMatch = lines.length && lines[0].match(/^(\w+)\s*:\s*(.+)$/);
+  if (!firstMatch || !_FM_WHITELIST[firstMatch[1]]) {
+    return { config: {}, content: text };
+  }
+  var config = {};
+  var i = 0;
+  while (i < lines.length) {
+    if (lines[i] === '') break;
+    var m = lines[i].match(/^(\w+)\s*:\s*(.+)$/);
+    if (!m || !_FM_WHITELIST[m[1]]) break;
+    config[m[1]] = m[2].trim();
+    i++;
+  }
+  // Skip one blank line after the config block
+  if (i < lines.length && lines[i] === '') i++;
+  return { config: config, content: lines.slice(i).join('\n') };
+}
+
+/**
+ * Split markdown into plain content strings (frontmatter stripped).
+ * Used by preview and PDF — no config needed there.
+ */
 function splitSlides(md) {
-  return md.split(/\n---\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+  return md.split(/\n---\n/).map(function (s) {
+    var parsed = parseSlideFrontmatter(s.trim());
+    return parsed.content.trim();
+  }).filter(Boolean);
+}
+
+/**
+ * Split markdown into [{config, content}] objects.
+ * Used by the slideshow renderer.
+ */
+function splitSlidesWithConfig(md) {
+  return md.split(/\n---\n/).map(function (s) {
+    var parsed = parseSlideFrontmatter(s.trim());
+    return { config: parsed.config, content: parsed.content.trim() };
+  }).filter(function (s) { return s.content; });
 }
