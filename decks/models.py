@@ -245,6 +245,7 @@ class OAuthCode(models.Model):
     used = models.BooleanField(default=False)
     code_challenge = models.CharField(max_length=256, blank=True, default='')
     code_challenge_method = models.CharField(max_length=10, blank=True, default='')
+    resource = models.TextField(blank=True, default='')
 
     class Meta:
         ordering = ['-expires_at']
@@ -256,6 +257,7 @@ class OAuthToken(models.Model):
     token_hash = models.CharField(max_length=128, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     last_used = models.DateTimeField(null=True, blank=True)
+    resource = models.TextField(blank=True, default='')
 
     class Meta:
         ordering = ['-created_at']

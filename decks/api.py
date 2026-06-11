@@ -714,9 +714,9 @@ def oauth_authorize(request):
     client_id = request.GET.get('client_id') or request.POST.get('client_id', '')
     redirect_uri = request.GET.get('redirect_uri') or request.POST.get('redirect_uri', '')
     state = request.GET.get('state') or request.POST.get('state', '')
-    response_type = request.GET.get('response_type', 'code')
     code_challenge = request.GET.get('code_challenge') or request.POST.get('code_challenge', '')
     code_challenge_method = request.GET.get('code_challenge_method') or request.POST.get('code_challenge_method', '')
+    resource = request.GET.get('resource') or request.POST.get('resource', '')
 
     try:
         app = OAuthApp.objects.select_related('user').get(client_id=client_id)
@@ -744,6 +744,7 @@ def oauth_authorize(request):
                 expires_at=timezone.now() + datetime.timedelta(minutes=5),
                 code_challenge=request.POST.get('code_challenge', ''),
                 code_challenge_method=request.POST.get('code_challenge_method', ''),
+                resource=request.POST.get('resource', ''),
             )
             url = f'{redirect_uri}{sep}code={code_str}'
             if state:
@@ -763,6 +764,7 @@ def oauth_authorize(request):
         'state': state,
         'code_challenge': code_challenge,
         'code_challenge_method': code_challenge_method,
+        'resource': resource,
     })
 
 
@@ -836,11 +838,16 @@ def oauth_token(request):
         app=app,
         user=auth_code.user,
         token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+        resource=auth_code.resource,
     )
 
-    return JsonResponse({
+    token_response = {
         'access_token': raw_token,
         'token_type': 'Bearer',
         'scope': 'mcp',
         'expires_in': 31536000,  # 1 year; no server-side expiry enforced yet
-    })
+    }
+    if auth_code.resource:
+        token_response['resource'] = auth_code.resource
+
+    return _cors(JsonResponse(token_response))
